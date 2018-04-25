@@ -1,0 +1,14 @@
+html {
+    width: 500px;
+    height: 550px;
+    min-width: 400px;
+    min-height: 400px;
+}
+
+body {
+    width: 500px;
+    height: 550px;
+    min-width: 400px;
+    min-height: 400px;
+    background-color: #fff;
+}

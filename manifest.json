@@ -1,0 +1,24 @@
+{
+	"name": "My Azure Portal Extention",
+	"version": "0.0.3",
+	"manifest_version": 2,
+	"description": "Setup wallpapers in your Azure Portal top, highlight empty resource groups and extract AccessToken",
+	"permissions": [
+		"<all_urls>","webRequest","webRequestBlocking", "clipboardRead",  "storage"
+	],
+	"content_scripts": [
+	{
+		"matches": ["https://ms.portal.azure.com/*", "https://portal.azure.com/*"],
+		"js": ["jquery-3.2.0.min.js", "script.js"],
+		"run_at":"document_end"
+		}
+	],"background": {
+		"scripts": ["jquery-3.2.0.min.js", "background.js"],
+		"persistent": true
+	},
+	"browser_action": {
+		"scripts": ["jquery-3.2.0.min.js", "popup.js"],
+		"css": ["css/popup.css"],
+		"default_popup": "popup.html"
+	}
+}
