@@ -5,7 +5,7 @@ This extension can enhance user experience for [Microsoft Azure Portal](https://
 
 ## How to install
 
-Go to https://chrome.google.com/webstore/detail/microsoft-azure-portal-ex/mikcbmlmkpmdbfegdnkekcapjipckaom?hl=ja using Chrom browser and add chrome.
+Go to https://chrome.google.com/webstore/detail/jdaghfledaciocaiddjgcaamlcdhijjh/publish-delayed?hl=en using Chrom browser and add chrome.
 
 
 # Offering features
