@@ -1,22 +1,22 @@
 My Azure Portal Extension
 ============================
 
-This extension can enhance user experience of [Microsoft Azure Portal](https://portal.azure.com/).
+This extension can enhance your user experience on [Microsoft Azure Portal](https://portal.azure.com/).
 
 ## How to install
 
-Go to https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh using Chrome browser and add this extension into yoru chrome browser.
+Go to https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh using Chrome browser and add this extension into your chrome browser.
 
 
 # Offering features
 
-No.1: You can highlight empty resourcegroups on Azure Portal like below.
+No.1: Highlight empty resourcegroups on Azure Portal like below.
 
 ![extension usage image01](img/use-image-01.png "extension usage image01")
 
-No.2: You can extract your AccessToken via popup window of this extension, and you can use the AccessToken for Azure REST APIs as development usage.
+No.2:Extract your AccessToken via popup window of this extension and use it for Azure REST APIs as development usage.
 
-No.3: You can setup your wallpaper as you wish on Azure Portal top like below and you can also specify image url and image opacity.
+No.3: Setup your desired wallpapers on Azure Portal top like below.
 
 ![extension usage image02](img/use-image-02.png "extension usage image02")
 
