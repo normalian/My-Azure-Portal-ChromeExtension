@@ -72,7 +72,7 @@ function initializeResouceMap(subscriptionId, displayName){
 }
 
 function doURICheckLoop() {
-	// console.log('[Azure Portal Extention] Current URI = ' + window.location.href);
+	//console.log('[Azure Portal Extention] Current URI = ' + window.location.href);
 	if( window.location.href.indexOf('resourceType/Microsoft.Resources%2Fsubscriptions%2FresourceGroups') != -1 ||
 		window.location.href.indexOf('blade/HubsExtension/BrowseResourceGroups') != -1
 	){
@@ -83,7 +83,7 @@ function doURICheckLoop() {
 doURICheckLoop();
 
 function doUpdateResourcegrouplist(){
-	console.log('[Azure Portal Extention] call doUpdateResourcegrouplist')
+	console.log('[Azure Portal Extention] doUpdateResourcegrouplist()')
 	const resourceArray = jQuery('div.fxc-gc-row-content');
 	//const resourceArray     = jQuery('div.fxc-gc-cell.fxc-gc-columncell_0_0');
 	//const subscriptionArray = jQuery('div.fxc-gc-cell.fxc-gc-columncell_0_1');

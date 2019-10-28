@@ -52,7 +52,7 @@ chrome.runtime.onConnect.addListener( port => {
 			document.body.removeChild(textArea);
 			return true;
 		}else if( arg.name="get-subscription-resourcegroups"){
-			console.log("################################# get-subscription-resourcegroups");
+			//console.log("################################# get-subscription-resourcegroups");
 			$.ajax({
 				type: 'GET',
 				//dataType: "jsonp", 
@@ -101,11 +101,10 @@ chrome.runtime.onConnect.addListener( port => {
 						subscriptionId: arg.subscriptionId,
 						displayName : arg.displayName
 					});
-					console.log("################################# response end");
+					//console.log("################################# response end");
 					//console.table(resourceMap);
 				});
 			});
-		
 			return true;
 		}
 	});

@@ -36,13 +36,3 @@ $(function(){
 		}
 	);
 });
-
-/* doesn't work well
-$(function(){
-	$('#copyclipboard').click( function(){
-		console.log('[Azure Portal Extention] aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
-		port.postMessage({ authorizationToken: authorizationToken,
-		                   name: "copy-accesstoken-toclipboard"});
-	});
-});
-*/
