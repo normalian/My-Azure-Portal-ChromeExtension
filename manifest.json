@@ -1,6 +1,6 @@
 {
 	"name": "My Azure Portal Extention",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"manifest_version": 2,
 	"description": "Setup wallpapers in your Azure Portal top, highlight empty resource groups and extract AccessToken",
 	"permissions": [

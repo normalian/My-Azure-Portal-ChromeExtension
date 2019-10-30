@@ -8,8 +8,8 @@ console.log('[Azure Portal Extention] start script.js');
 var port = chrome.runtime.connect( { name: "my-background-port"} );
 
 var default_config = {
-  imgUrl : 'https://daisamiclientvmstorage.blob.core.windows.net/public/hh561749.claudia_wp_01.jpg',
-  opacity : 0.8
+  imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
+  opacity : 0.6
 };
 
 // This delay process is important to add elements on Azure portal for delay read.
@@ -45,7 +45,7 @@ function showMessageOnAzurePortalTopLoop() {
 			}
 		});
 	}else{
-		setTimeout( () => showMessageOnAzurePortalTopLoop(), 2000);
+		setTimeout( () => showMessageOnAzurePortalTopLoop(), 1000);
 	}
 }
 showMessageOnAzurePortalTopLoop();
@@ -53,6 +53,9 @@ showMessageOnAzurePortalTopLoop();
 function setupWallpaperOnTop( imgUrl, opacity ){
 	//style="background-image: url('https://daisamiclientvmstorage.blob.core.windows.net/public/hh561749.claudia_wp_01.jpg');opacity : 0.8"
 	var elem = jQuery('div.fxs-startboard-layout.fxs-flowlayout');
+	elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity );
+
+	var elem = jQuery('div.fxs-home-container.fxs-portal-text');
 	elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity );
 }
 
@@ -78,7 +81,7 @@ function doURICheckLoop() {
 	){
 		doUpdateResourcegrouplist();
 	}
-	setTimeout( () => doURICheckLoop(), 3000);
+	setTimeout( () => doURICheckLoop(), 1000);
 }
 doURICheckLoop();
 
