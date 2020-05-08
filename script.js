@@ -7,9 +7,9 @@ var rateCardMap;
 console.log('[Azure Portal Extention] start script.js');
 var port = chrome.runtime.connect( { name: "my-background-port"} );
 
-var default_config = {
+var wallpaper_config = {
   imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
-  opacity : 0.6
+  opacity : 0.8
 };
 
 // This delay process is important to add elements on Azure portal for delay read.
@@ -31,7 +31,7 @@ function showMessageOnAzurePortalTopLoop() {
 
 				// read user setup info and setup wallpaper
 				chrome.storage.sync.get(
-					default_config,
+					wallpaper_config,
 					function(items) {
 						setupWallpaperOnTop( items.imgUrl, items.opacity );
 					}

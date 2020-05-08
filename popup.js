@@ -5,12 +5,12 @@ console.log('[Azure Portal Extention] start popup.js');
 var authorizationToken;
 var port = chrome.runtime.connect( { name: "my-background-port"} );
 var default_config = {
-  imgUrl : 'https://daisamiclientvmstorage.blob.core.windows.net/public/hh561749.claudia_wp_01.jpg',
-  opacity : 0.8
-};
+	imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
+	opacity : 0.8
+  };
 
 $(function(){
-	// console.log('[Azure Portal Extention] @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@');
+	// console.log('[Azure Portal Extention] Here is popup.js');
 	port.postMessage({name: "get-subscriptions-accesstoken"});
 	port.onMessage.addListener( response => {
 		// take authorizationToken from background

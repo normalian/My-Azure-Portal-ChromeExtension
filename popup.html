@@ -4,24 +4,26 @@
     <meta charset="utf-8">
     <title>Azure Portal Extention Configuration Wizard</title>
     <link rel="stylesheet" href="css/popup.css" type="text/css">
-    <script src="jquery-3.4.1.min.js"></script>
+    <script src="jquery-3.5.1.min.js"></script>
     <script src="popup.js"></script>
   </head>
   <body>
-    <h3>Configuration for wallpaper on Azure portal</h3>
+    <h3>Configure your image to setup as a wallpaper on Azure portal</h3>
     <div style="margin-left:30px;">
-      Refresh your Azure portal tab after clicking "save" button to reflect your configuration.
+      It's mandatory to refresh Azure portal tab on your Chrome after clicking "save" button to reflect configuration.
       <dl>
-       <dt>Input your Image URL:<dt><dd><input id="imgurl" type="text" size="65" /></dd>
+       <dt>Input your Image URL:<dt><dd><input id="imgurl" type="text" size="55" /></dd>
        <dt>Input your Image Opacity:<dt><dd> <input id="opacity" type="text" size="10" /></dd>
       </dl>
       <input id="save_button" type="button" value="save">
     </div>
-    <hr sytle="width:4px;">
-    <h3>AccessToken for your Azure subscriptions</h3>
-    <div style="margin-left:30px;">
-      <textarea id="accesstoken" rows="35" cols="60">reading now. please wait...
-      </textarea>
-    </div>
+    <!-- 
+      <hr sytle="width:4px;">
+      <h3>AccessToken for your Azure subscriptions</h3>
+      <div style="margin-left:30px;">
+        <textarea id="accesstoken" rows="35" cols="60">reading now. please wait...
+        </textarea>
+      </div>
+    -->
   </body>
 </html>

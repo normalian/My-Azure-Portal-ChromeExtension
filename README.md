@@ -13,9 +13,7 @@ No.1: Highlight empty resourcegroups on Azure Portal like below.
 
 ![extension usage image01](img/use-image-01.png "extension usage image01")
 
-No.2: Extract your AccessToken via popup window of this extension, and you can use the AccessToken for Azure REST APIs as development usage.
-
-No.3: Setup your wallpaper as you wish on Azure Portal top like below and you can also specify image url and image opacity.
+No.2: Setup your wallpaper as you wish on Azure Portal top like below and you can also specify image url and image opacity.
 
 ![extension usage image02](img/use-image-02.png "extension usage image02")
 
