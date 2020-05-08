@@ -2,7 +2,7 @@
 	"name": "My Azure Portal Extention",
 	"version": "0.1.1",
 	"manifest_version": 2,
-	"description": "Setup wallpapers in your Azure Portal top, highlight empty resource groups and extract AccessToken",
+	"description": "Setup wallpapers in your Azure Portal top and highlight empty resource groups",
 	"browser_action": {
 		"default_icon": "img/icon128.png",
 		"icons": {	"16": "img/icon16.png",
