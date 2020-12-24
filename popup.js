@@ -46,10 +46,15 @@ $(function(){
 		function(items) {
 			$("#imgurl").val(items.imgUrl);
 			$("#opacity").val(items.opacity);
+			$('#slider_val').text($("#opacity").val());
 			$("#color").val(items.color);
 			$("#addText").val(items.addText);
 			$("#isUsernameBluer").prop('checked', items.isUsernameBluer);
 			$("#isAADTenantBluer").prop('checked', items.isAADTenantBluer);
 		}
 	);
+
+	$("#opacity").on('input', function () {
+		$('#slider_val').text($("#opacity").val());
+	});
 });

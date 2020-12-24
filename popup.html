@@ -12,7 +12,7 @@
     <div style="margin-left:30px;">
       <dl>
        <dt>Input your Image URL:<dt><dd><input id="imgurl" type="text" size="55" /></dd>
-       <dt>Input your Image Opacity:<dt><dd> <input id="opacity" type="text" size="10" /></dd>
+       <dt>Input your Image Opacity:<dt><dd> <input id="opacity" type="range" min="0" max="1" step="0.1" size="10" /><div>Opacity is <span id="slider_val"></span></div></dd>
       </dl>
     </div>
     <h3>Configure empty resource groups color</h3>
@@ -25,8 +25,8 @@
     <h3>Bluer setting</h3>
     <div style="margin-left:30px;">
       <dl>
-       <dt>Bluer your account name:<dt><dd><input id="isUsernameBluer" type="checkbox" /></dd>
-       <dt>Bluer your AAD tenant name :<dt><dd> <input id="isAADTenantBluer" type="checkbox" /></dd>
+       <dt>Bluer your account name:<dt><dd><input id="isUsernameBluer" type="checkbox" /><label class="check" for="isUsernameBluer"><div></div></label></dd>
+       <dt>Bluer your AAD tenant name :<dt><dd> <input id="isAADTenantBluer" type="checkbox" /><label class="check" for="isAADTenantBluer"><div></div></label></dd>
       </dl>
     </div>
     <h4>Refresh Azure portal tab after clicking "save" button to reflect configuration.</h4>

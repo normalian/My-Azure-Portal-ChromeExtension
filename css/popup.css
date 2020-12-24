@@ -5,3 +5,60 @@ body {
     min-height: 200px;
     background-color: rgb(238, 245, 255);
 }
+
+
+
+input[type="checkbox"] {
+    display: none;
+}
+
+input[type="checkbox"] + label.check {
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+    width: 60px;
+    height: 28px;
+    color: #969696;
+    border: 1px solid #a3a3a3;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
+
+input[type="checkbox"]:checked + label.check {
+    border: 1px solid #4db4e4;
+    background-color: #4db4e4;
+}
+
+input[type="checkbox"] + label.check::before {
+    content: "OFF";
+    position: absolute;
+    top: 4px;
+    left: auto;
+    right: 6px;
+}
+
+input[type="checkbox"]:checked + label.check::before {
+    content: "ON";
+    position: absolute;
+    left: 6px;
+    right: auto;
+    color: #ffffff;
+}
+
+
+input[type="checkbox"] + label.check > div {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 22px;
+    border: 1px solid #a3a3a3;
+    border-radius: 3px;
+    background-color: #ffffff;
+    transition: 0.2s;
+}
+
+input[type="checkbox"]:checked + label.check > div {
+    border: 1px solid transparent;
+    left: 44px;
+}
