@@ -8,7 +8,9 @@ var default_config = {
 	imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
 	opacity : 0.8,
 	addText : " - @@empty@@",
-	color : "#ffff00"
+	color : "#ffff00",
+	isUsernameBluer : false,
+	isAADTenantBluer : false,
 };
 
 $(function(){
@@ -25,11 +27,16 @@ $(function(){
 		var opacity = $("#opacity").val();
 		var color = $("#color").val();
 		var addText = $("#addText").val();
+		var isUsernameBluer = $('#isUsernameBluer').is(":checked");
+		var isAADTenantBluer = $('#isAADTenantBluer').is(":checked");
+
 		var config = {
 		  imgUrl: imgUrl,
 		  opacity: opacity,
 		  addText : addText,
-		  color : color
+		  color : color,
+		  isUsernameBluer : isUsernameBluer,
+		  isAADTenantBluer : isAADTenantBluer
 		};
 		chrome.storage.sync.set(config, function(){});
 	});
@@ -41,6 +48,8 @@ $(function(){
 			$("#opacity").val(items.opacity);
 			$("#color").val(items.color);
 			$("#addText").val(items.addText);
+			$("#isUsernameBluer").prop('checked', items.isUsernameBluer);
+			$("#isAADTenantBluer").prop('checked', items.isAADTenantBluer);
 		}
 	);
 });

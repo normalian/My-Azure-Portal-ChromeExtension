@@ -11,7 +11,9 @@ var extentionSettings = {
   imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
   opacity : 0.8,
   addText : " - @@empty@@",
-  color : "#ffff00"
+  color : "#ffff00",
+  isUsernameBluer : false,
+  isAADTenantBluer : false
 };
 
 // This delay process is important to add elements on Azure portal for delay read.
@@ -38,6 +40,11 @@ function showMessageOnAzurePortalTopLoop() {
 						setupWallpaperOnTop( items.imgUrl, items.opacity );
 						extentionSettings.color = items.color;
 						extentionSettings.addText = items.addText;
+						extentionSettings.isUsernameBluer = items.isUsernameBluer;
+						extentionSettings.isAADTenantBluer = items.isAADTenantBluer;
+
+						// call Bluer function after reading out settings
+						bluerUsernameAndAADTenant();
 					}
 				);
 			}else if(response.name == "get-resoucesmap-function"){
@@ -104,4 +111,15 @@ function doUpdateResourcegrouplist(){
 			$(resourceGroupElem).attr('style', 'color: ' + extentionSettings.color + ';');
 		}
 	});
+}
+
+
+function bluerUsernameAndAADTenant() {
+	var usernameElem = jQuery('div.fxs-avatarmenu-username');
+	if(usernameElem.length){
+		if(extentionSettings.isUsernameBluer == true) jQuery(usernameElem).attr('style','filter: blur(2px);');
+		if(extentionSettings.isAADTenantBluer == true) jQuery('div.fxs-avatarmenu-tenant').attr('style','filter: blur(2px);');
+	}else{
+		setTimeout( () => bluerUsernameAndAADTenant(), 1000);
+	}
 }

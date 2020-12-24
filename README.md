@@ -17,6 +17,9 @@ No.2: Setup your wallpaper as you wish on Azure Portal top like below and you ca
 
 ![extension usage image02](img/use-image-02.png "extension usage image02")
 
+No.3: Bluer username or Azure AD Tenant name on Azure Portal.
+
+![extension usage image02](img/use-image-03.png "extension usage image03")
 
 ## Reference for development
 
@@ -31,7 +34,7 @@ No.2: Setup your wallpaper as you wish on Azure Portal top like below and you ca
 ## Copyright
 <table>
   <tr>
-    <td>Copyright</td><td>Copyright (c) 2017- Daichi Isami</td>
+    <td>Copyright</td><td>Copyright (c) 2017 - Daichi Isami</td>
   </tr>
   <tr>
     <td>License</td><td>MIT License</td>
