@@ -31,7 +31,7 @@ chrome.runtime.onConnect.addListener( port => {
 					'Authorization': authorizationToken,
 					'Content-Type': 'application/json'
 				},
-				url: "https://management.azure.com/subscriptions?api-version=2014-04-01-preview"
+				url: "https://management.azure.com/subscriptions?api-version=2018-02-01"
 			}).then( response => {
 				// console.log(JSON.stringify(response));
 				port.postMessage( {
@@ -86,12 +86,15 @@ chrome.runtime.onConnect.addListener( port => {
 						+ '/resources'
 						+ '?api-version=2019-08-01'
 				}).then( response => {
-					//console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 					for( var k=0; k<response.value.length ; k++ ){
 						const resourceGroupName = response.value[k].id.split('/')[4].toLowerCase();
 						const resourceName = response.value[k].name;
-						// console.log(resourceName + ', ' + resourceGroupName);
-						subResourceMap[resourceGroupName][resourceName] = true;
+						try{
+							// console.log(resourceName + ', ' + resourceGroupName);
+							subResourceMap[resourceGroupName][resourceName] = true;
+						}catch(error){
+							console.log(error);
+						}
 					}
 					//console.log(subResourceMap);
 					//console.log(JSON.stringify(subResourceMap));
@@ -101,7 +104,6 @@ chrome.runtime.onConnect.addListener( port => {
 						subscriptionId: arg.subscriptionId,
 						displayName : arg.displayName
 					});
-					//console.log("################################# response end");
 					//console.table(resourceMap);
 				});
 			});

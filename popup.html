@@ -8,15 +8,22 @@
     <script src="popup.js"></script>
   </head>
   <body>
-    <h3>Configure your image to setup as a wallpaper on Azure portal</h3>
+    <h3>Configure your image to setup as a wallpaper</h3>
     <div style="margin-left:30px;">
-      It's mandatory to refresh Azure portal tab on your Chrome after clicking "save" button to reflect configuration.
       <dl>
        <dt>Input your Image URL:<dt><dd><input id="imgurl" type="text" size="55" /></dd>
        <dt>Input your Image Opacity:<dt><dd> <input id="opacity" type="text" size="10" /></dd>
       </dl>
-      <input id="save_button" type="button" value="save">
     </div>
+    <h3>Configure empty resource groups color</h3>
+    <div style="margin-left:30px;">
+      <dl>
+       <dt>Input text to add empty resource group:<dt><dd><input id="addText" type="text" size="55" /></dd>
+       <dt>Input empty resource group color :<dt><dd> <input id="color" type="color" style="width:35%;" /></dd>
+      </dl>
+    </div>
+    <h4>Refresh Azure portal tab after clicking "save" button to reflect configuration.</h4>
+    <input id="save_button" type="button" value="save">
     <!-- 
       <hr sytle="width:4px;">
       <h3>AccessToken for your Azure subscriptions</h3>

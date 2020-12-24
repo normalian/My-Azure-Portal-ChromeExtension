@@ -6,8 +6,10 @@ var authorizationToken;
 var port = chrome.runtime.connect( { name: "my-background-port"} );
 var default_config = {
 	imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
-	opacity : 0.8
-  };
+	opacity : 0.8,
+	addText : " - @@empty@@",
+	color : "#ffff00"
+};
 
 $(function(){
 	// console.log('[Azure Portal Extention] Here is popup.js');
@@ -21,9 +23,13 @@ $(function(){
 	$('#save_button').click( function(){
 		var imgUrl = $("#imgurl").val();
 		var opacity = $("#opacity").val();
+		var color = $("#color").val();
+		var addText = $("#addText").val();
 		var config = {
 		  imgUrl: imgUrl,
-		  opacity: opacity
+		  opacity: opacity,
+		  addText : addText,
+		  color : color
 		};
 		chrome.storage.sync.set(config, function(){});
 	});
@@ -33,6 +39,8 @@ $(function(){
 		function(items) {
 			$("#imgurl").val(items.imgUrl);
 			$("#opacity").val(items.opacity);
+			$("#color").val(items.color);
+			$("#addText").val(items.addText);
 		}
 	);
 });

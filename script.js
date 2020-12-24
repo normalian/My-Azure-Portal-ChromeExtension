@@ -7,9 +7,11 @@ var rateCardMap;
 console.log('[Azure Portal Extention] start script.js');
 var port = chrome.runtime.connect( { name: "my-background-port"} );
 
-var wallpaper_config = {
+var extentionSettings = {
   imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
-  opacity : 0.8
+  opacity : 0.8,
+  addText : " - @@empty@@",
+  color : "#ffff00"
 };
 
 // This delay process is important to add elements on Azure portal for delay read.
@@ -31,9 +33,11 @@ function showMessageOnAzurePortalTopLoop() {
 
 				// read user setup info and setup wallpaper
 				chrome.storage.sync.get(
-					wallpaper_config,
+					extentionSettings,
 					function(items) {
 						setupWallpaperOnTop( items.imgUrl, items.opacity );
+						extentionSettings.color = items.color;
+						extentionSettings.addText = items.addText;
 					}
 				);
 			}else if(response.name == "get-resoucesmap-function"){
@@ -96,8 +100,8 @@ function doUpdateResourcegrouplist(){
 		const displayName = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_1').text();
 		if(!resourceMap[displayName] || !resourceMap[displayName][resourceGroupName]) return;
 		else if( Object.keys(resourceMap[displayName][resourceGroupName]).length == 0 ){
-			$(resourceGroupElem).text($(resourceGroupElem).text() + " - @@empty@@");
-			$(resourceGroupElem).attr('style', 'color: #ffff00;');
+			$(resourceGroupElem).text($(resourceGroupElem).text() + extentionSettings.addText);
+			$(resourceGroupElem).attr('style', 'color: ' + extentionSettings.color + ';');
 		}
 	});
 }
