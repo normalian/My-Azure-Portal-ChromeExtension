@@ -83,8 +83,7 @@ chrome.runtime.onConnect.addListener( port => {
 					// https://docs.microsoft.com/en-us/rest/api/resources/resources#Resources_List
 					url: 'https://management.azure.com/subscriptions/'
 						+ arg.subscriptionId
-						+ '/resources'
-						+ '?api-version=2019-08-01'
+						+ '/resources?api-version=2019-08-01'
 				}).then( response => {
 					for( var k=0; k<response.value.length ; k++ ){
 						const resourceGroupName = response.value[k].id.split('/')[4].toLowerCase();

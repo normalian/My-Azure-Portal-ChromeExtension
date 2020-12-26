@@ -1,11 +1,9 @@
 'use strict';
 
-var authorizationToken;
-var resourceMap = new Array();
-var rateCardMap;
-
 console.log('[Azure Portal Extention] start script.js');
 var port = chrome.runtime.connect( { name: "my-background-port"} );
+var authorizationToken;
+var resourceMap = new Array();
 
 var extentionSettings = {
   imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
@@ -37,9 +35,10 @@ function showMessageOnAzurePortalTopLoop() {
 				chrome.storage.sync.get(
 					extentionSettings,
 					function(items) {
-						setupWallpaperOnTop( items.imgUrl, items.opacity );
 						extentionSettings.color = items.color;
 						extentionSettings.addText = items.addText;
+						extentionSettings.imgUrl = items.imgUrl;
+						extentionSettings.opacity = items.opacity;
 						extentionSettings.isUsernameBluer = items.isUsernameBluer;
 						extentionSettings.isAADTenantBluer = items.isAADTenantBluer;
 
@@ -62,7 +61,6 @@ function showMessageOnAzurePortalTopLoop() {
 showMessageOnAzurePortalTopLoop();
 
 function setupWallpaperOnTop( imgUrl, opacity ){
-	//style="background-image: url('https://daisamiclientvmstorage.blob.core.windows.net/public/hh561749.claudia_wp_01.jpg');opacity : 0.8"
 	var elem = jQuery('div.fxs-startboard-layout.fxs-flowlayout');
 	elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity );
 
@@ -86,7 +84,10 @@ function initializeResouceMap(subscriptionId, displayName){
 }
 
 function doURICheckLoop() {
-	//console.log('[Azure Portal Extention] Current URI = ' + window.location.href);
+	// Setup background image here to make sure 
+	setupWallpaperOnTop( extentionSettings.imgUrl, extentionSettings.opacity );
+
+	// console.log('[Azure Portal Extention] Current URI = ' + window.location.href);
 	if( window.location.href.indexOf('resourceType/Microsoft.Resources%2Fsubscriptions%2FresourceGroups') != -1 ||
 		window.location.href.indexOf('blade/HubsExtension/BrowseResourceGroups') != -1
 	){
@@ -112,7 +113,6 @@ function doUpdateResourcegrouplist(){
 		}
 	});
 }
-
 
 function bluerUsernameAndAADTenant() {
 	var usernameElem = jQuery('div.fxs-avatarmenu-username');
