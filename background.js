@@ -1,6 +1,8 @@
 'use strict';
 
 var authorizationToken;
+var subscriptionIDs = new Array();
+var subscriptionNames = new Array();
 console.log('[Azure Portal Extention] start background.js');
 
 chrome.webRequest.onBeforeSendHeaders.addListener(function(details){
@@ -34,6 +36,11 @@ chrome.runtime.onConnect.addListener( port => {
 				url: "https://management.azure.com/subscriptions?api-version=2018-02-01"
 			}).then( response => {
 				// console.log(JSON.stringify(response));
+				// set subscriptions values on top
+				for( var i=0; i<response.value.length ; i++){
+					subscriptionIDs.push(response.value[i].subscriptionId);
+				} 
+				// subscriptionIDs = response.value;
 				port.postMessage( {
 					name: "get-access-function",
 					authorizationToken: authorizationToken,
@@ -51,59 +58,28 @@ chrome.runtime.onConnect.addListener( port => {
 			document.execCommand("copy");
 			document.body.removeChild(textArea);
 			return true;
-		}else if( arg.name="get-subscription-resourcegroups"){
-			//console.log("################################# get-subscription-resourcegroups");
+		}else if( arg.name="get-empty-resourcegroups"){
+			// console.log("################################# get-empty-resourcegroups");
+			// REST API call to get empty resource grups with subscription name
+			var data = {
+				"subscriptions" :subscriptionIDs,
+				"query" : "ResourceContainers | where type == 'microsoft.resources/subscriptions/resourcegroups' | extend rgAndSub = strcat(resourceGroup, '--', subscriptionId) | join kind=leftouter (Resources | extend rgAndSub = strcat(resourceGroup, '--', subscriptionId) | summarize count() by rgAndSub ) on rgAndSub | where isnull(count_) | project-away rgAndSub1, count_ | join kind=leftouter (ResourceContainers | where type=='microsoft.resources/subscriptions' | project subscriptionName=name, subscriptionId) on subscriptionId | project-away subscriptionId1"
+			};
+
 			$.ajax({
-				type: 'GET',
-				//dataType: "jsonp", 
+				type: 'POST',
 				headers: {
-				 'Authorization': authorizationToken,
-				 'Content-Type': 'application/json'
+					'Authorization': authorizationToken,
+					'Content-Type': 'application/json'
 				},
-				// https://docs.microsoft.com/en-us/rest/api/resources/resourcegroups#ResourceGroups_List
-				url: 'https://management.azure.com/subscriptions/'
-					+ arg.subscriptionId
-					+ '/resourcegroups'
-					+ '?api-version=2019-08-01'
-			}).done( function( response ){
-				//console.log("################################# response start");
-				//console.log(response);
-				//console.log(arg.subscriptionId);
-				//console.log(arg.displayName);
-				//if(! response.value ) return;
-				for( var j=0; j<response.value.length ; j++ ){
-					subResourceMap[response.value[j].name.toLowerCase()] = {};
-				}
-				$.ajax({
-					type: 'GET',
-					headers: {
-						'Authorization': authorizationToken,
-						'Content-Type': 'application/json'
-					},
-					// https://docs.microsoft.com/en-us/rest/api/resources/resources#Resources_List
-					url: 'https://management.azure.com/subscriptions/'
-						+ arg.subscriptionId
-						+ '/resources?api-version=2019-08-01'
-				}).then( response => {
-					for( var k=0; k<response.value.length ; k++ ){
-						const resourceGroupName = response.value[k].id.split('/')[4].toLowerCase();
-						const resourceName = response.value[k].name;
-						try{
-							// console.log(resourceName + ', ' + resourceGroupName);
-							subResourceMap[resourceGroupName][resourceName] = true;
-						}catch(error){
-							console.log(error);
-						}
-					}
-					//console.log(subResourceMap);
-					//console.log(JSON.stringify(subResourceMap));
-					port.postMessage( {
-						name : "get-resoucesmap-function",
-						subResourceMap: JSON.stringify(subResourceMap),
-						subscriptionId: arg.subscriptionId,
-						displayName : arg.displayName
-					});
-					//console.table(resourceMap);
+				url: 'https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2019-04-01',
+				dataType: 'json',
+				data : JSON.stringify(data) // required to pass parameters as json body
+			}).then( function( response ){
+				port.postMessage( {
+					name : "get-empty-resourcegroups",
+					// Chrome Extension can't pass nest parameters 
+					emptyResourcegroups: JSON.stringify(response)
 				});
 			});
 			return true;

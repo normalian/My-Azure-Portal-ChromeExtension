@@ -4,9 +4,10 @@ console.log('[Azure Portal Extention] start script.js');
 var port = chrome.runtime.connect( { name: "my-background-port"} );
 var authorizationToken;
 var resourceMap = new Array();
+var emptyResourcegroups = new Array();
 
 var extentionSettings = {
-  imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
+  imgUrl : null,
   opacity : 0.8,
   addText : " - @@empty@@",
   color : "#ffff00",
@@ -25,11 +26,7 @@ function showMessageOnAzurePortalTopLoop() {
 			if(response.name == "get-access-function"){
 				// take authorizationToken from background
 				authorizationToken = response.authorizationToken;
-
-				// Update resourceMap infor for all subscriptions
-				for(var i=0; i<response.subscriptions.length; i++){
-					initializeResouceMap(response.subscriptions[i].subscriptionId, response.subscriptions[i].displayName);
-				}
+				port.postMessage({ name: "get-empty-resourcegroups" });			
 
 				// read user setup info and setup wallpaper
 				chrome.storage.sync.get(
@@ -52,6 +49,8 @@ function showMessageOnAzurePortalTopLoop() {
 				resourceMap[response.displayName] = JSON.parse(response.subResourceMap);
 				//console.log(resourceMap);
 				//console.log("################################# showMessageOnAzurePortalTopLoop()#get-resoucesmap-function end");
+			}else if(response.name == "get-empty-resourcegroups"){
+				emptyResourcegroups = JSON.parse(response.emptyResourcegroups);
 			}
 		});
 	}else{
@@ -73,14 +72,14 @@ function initializeResouceMap(subscriptionId, displayName){
 	//console.log("################################# initializeResouceMap()");
 	//console.log(subscriptionId);
 	//console.log(authorizationToken);
-	//console.log("#################################");
-
 	port.postMessage({
 		name: "get-subscription-resourcegroups",
 		subscriptionId : subscriptionId,
 		displayName : displayName,
 		resourceMap : resourceMap
 	});
+	//console.log("#################################");
+
 }
 
 function doURICheckLoop() {
@@ -93,23 +92,26 @@ function doURICheckLoop() {
 	){
 		doUpdateResourcegrouplist();
 	}
-	setTimeout( () => doURICheckLoop(), 1000);
+	setTimeout( () => doURICheckLoop(), 500);
 }
 doURICheckLoop();
 
 function doUpdateResourcegrouplist(){
 	console.log('[Azure Portal Extention] doUpdateResourcegrouplist()')
+	// pick up top element of resource group list 
 	const resourceArray = jQuery('div.fxc-gc-row-content');
-	//const resourceArray     = jQuery('div.fxc-gc-cell.fxc-gc-columncell_0_0');
-	//const subscriptionArray = jQuery('div.fxc-gc-cell.fxc-gc-columncell_0_1');
 	resourceArray.each( (index, elem) => {
+		// pickup resource grups name
 		var resourceGroupElem = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_0 a.fxc-gcflink-link');
-		const resourceGroupName = resourceGroupElem.text().toLowerCase();
-		const displayName = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_1').text();
-		if(!resourceMap[displayName] || !resourceMap[displayName][resourceGroupName]) return;
-		else if( Object.keys(resourceMap[displayName][resourceGroupName]).length == 0 ){
-			$(resourceGroupElem).text($(resourceGroupElem).text() + extentionSettings.addText);
-			$(resourceGroupElem).attr('style', 'color: ' + extentionSettings.color + ';');
+		const resourceGroupName = resourceGroupElem.text();
+		// pick up subscription name
+		const subscriptionname = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_1').text();
+		for( var i=0; i<emptyResourcegroups.count ; i++){
+			if(emptyResourcegroups.data.rows[i][6] ==  resourceGroupName &&
+				emptyResourcegroups.data.rows[i][17] == subscriptionname){
+				$(resourceGroupElem).text($(resourceGroupElem).text() + extentionSettings.addText);
+				$(resourceGroupElem).attr('style', 'color: ' + extentionSettings.color + ';');
+			}
 		}
 	});
 }
