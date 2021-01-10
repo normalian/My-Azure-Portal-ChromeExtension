@@ -1,12 +1,11 @@
 'use strict';
 
 console.log('[Azure Portal Extention] start script.js');
-var port = chrome.runtime.connect( { name: "my-background-port"} );
+const port = chrome.runtime.connect( { name: "my-background-port"} );
 var authorizationToken;
-var resourceMap = new Array();
-var emptyResourcegroups = new Array();
+var emptyResourcegroups = new Array(); // avoid reference exception on showMessageOnAzurePortalTopLoop() when it's initiating
 
-var extentionSettings = {
+const extentionSettings = {
   imgUrl : null,
   opacity : 0.8,
   addText : " - @@empty@@",
@@ -17,7 +16,7 @@ var extentionSettings = {
 
 // This delay process is important to add elements on Azure portal for delay read.
 function showMessageOnAzurePortalTopLoop() {
-	var elem = jQuery('div.fxs-startboard-layout.fxs-flowlayout');
+	const elem = jQuery('div.fxs-startboard-layout.fxs-flowlayout');
 	if( elem.length > 0 ){
 		port.postMessage({name: "get-subscriptions-accesstoken"});
 		port.onMessage.addListener( response => {
@@ -43,12 +42,6 @@ function showMessageOnAzurePortalTopLoop() {
 						bluerUsernameAndAADTenant();
 					}
 				);
-			}else if(response.name == "get-resoucesmap-function"){
-				//console.log("################################# showMessageOnAzurePortalTopLoop()#get-resoucesmap-function start");
-				//console.log(response);
-				resourceMap[response.displayName] = JSON.parse(response.subResourceMap);
-				//console.log(resourceMap);
-				//console.log("################################# showMessageOnAzurePortalTopLoop()#get-resoucesmap-function end");
 			}else if(response.name == "get-empty-resourcegroups"){
 				emptyResourcegroups = JSON.parse(response.emptyResourcegroups);
 			}
@@ -67,21 +60,6 @@ function setupWallpaperOnTop( imgUrl, opacity ){
 	elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity );
 }
 
-function initializeResouceMap(subscriptionId, displayName){
-	resourceMap[displayName] = new Array();
-	//console.log("################################# initializeResouceMap()");
-	//console.log(subscriptionId);
-	//console.log(authorizationToken);
-	port.postMessage({
-		name: "get-subscription-resourcegroups",
-		subscriptionId : subscriptionId,
-		displayName : displayName,
-		resourceMap : resourceMap
-	});
-	//console.log("#################################");
-
-}
-
 function doURICheckLoop() {
 	// Setup background image here to make sure 
 	setupWallpaperOnTop( extentionSettings.imgUrl, extentionSettings.opacity );
@@ -98,11 +76,12 @@ doURICheckLoop();
 
 function doUpdateResourcegrouplist(){
 	console.log('[Azure Portal Extention] doUpdateResourcegrouplist()')
-	// pick up top element of resource group list 
+	// pick up top element of resource group list, this css class sometimes change depending on timing
 	const resourceArray = jQuery('div.fxc-gc-row-content');
+
 	resourceArray.each( (index, elem) => {
 		// pickup resource grups name
-		var resourceGroupElem = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_0 a.fxc-gcflink-link');
+		const resourceGroupElem = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_0 a.fxc-gcflink-link');
 		const resourceGroupName = resourceGroupElem.text();
 		// pick up subscription name
 		const subscriptionname = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_1').text();
@@ -117,7 +96,7 @@ function doUpdateResourcegrouplist(){
 }
 
 function bluerUsernameAndAADTenant() {
-	var usernameElem = jQuery('div.fxs-avatarmenu-username');
+	const usernameElem = jQuery('div.fxs-avatarmenu-username');
 	if(usernameElem.length){
 		if(extentionSettings.isUsernameBluer == true) jQuery(usernameElem).attr('style','filter: blur(2px);');
 		if(extentionSettings.isAADTenantBluer == true) jQuery('div.fxs-avatarmenu-tenant').attr('style','filter: blur(2px);');

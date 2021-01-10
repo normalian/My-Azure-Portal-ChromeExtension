@@ -2,11 +2,10 @@
 
 var authorizationToken;
 var subscriptionIDs = new Array();
-var subscriptionNames = new Array();
 console.log('[Azure Portal Extention] start background.js');
 
 chrome.webRequest.onBeforeSendHeaders.addListener(function(details){
-	var headers = details.requestHeaders;
+	const headers = details.requestHeaders;
 	// don't check http headers except for portal.azure.com
 	if( details.url.indexOf('portal.azure.com') == -1 ) return;
 	for( var i = 0, l = headers.length; i < l; ++i ) {
@@ -23,7 +22,6 @@ chrome.webRequest.onBeforeSendHeaders.addListener(function(details){
 
 // return authorizationToken and subscriptionList to scripts.js
 chrome.runtime.onConnect.addListener( port => {
-	var subResourceMap = {};
 	console.log('[Azure Portal Extention] background.js#addListener: ' + port.name);
 	port.onMessage.addListener( arg => {
 		if( arg.name == "get-subscriptions-accesstoken" ){
@@ -36,27 +34,15 @@ chrome.runtime.onConnect.addListener( port => {
 				url: "https://management.azure.com/subscriptions?api-version=2018-02-01"
 			}).then( response => {
 				// console.log(JSON.stringify(response));
-				// set subscriptions values on top
 				for( var i=0; i<response.value.length ; i++){
 					subscriptionIDs.push(response.value[i].subscriptionId);
 				} 
-				// subscriptionIDs = response.value;
 				port.postMessage( {
 					name: "get-access-function",
 					authorizationToken: authorizationToken,
 					subscriptions: response.value
 				});
 			});
-			return true;
-		}else if( arg.name == "copy-accesstoken-toclipboard" ){
-			console.log(port);
-			var textArea = document.createElement("textarea");
-			textArea.style.cssText = "position:absolute;left:-100%";
-			document.body.appendChild(textArea);
-			textArea.value = arg.authorizationToken;
-			textArea.select();
-			document.execCommand("copy");
-			document.body.removeChild(textArea);
 			return true;
 		}else if( arg.name="get-empty-resourcegroups"){
 			// console.log("################################# get-empty-resourcegroups");

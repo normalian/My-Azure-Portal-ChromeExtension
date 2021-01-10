@@ -5,7 +5,7 @@ console.log('[Azure Portal Extention] start popup.js');
 var authorizationToken;
 var port = chrome.runtime.connect( { name: "my-background-port"} );
 var default_config = {
-	imgUrl : 'https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg',
+	imgUrl : '',
 	opacity : 0.8,
 	addText : " - @@empty@@",
 	color : "#ffff00",
