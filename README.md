@@ -5,7 +5,7 @@ This extension works to enhance user experience of [Microsoft Azure Portal](http
 
 ## Supported browsers
 - Chrome
-- Edge - just open a like below and add Chrome Extension on your Edge browser
+- Edge - just open a link below and add Chrome Extension on your Edge browser
 
 ## How to install
 
