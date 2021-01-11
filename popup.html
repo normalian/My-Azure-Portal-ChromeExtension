@@ -17,6 +17,8 @@
     </div>
     <h3>Empty resource groups settings</h3>
     <div style="margin-left:30px;">
+      <div>Highlight empty resource group?<dt><dd><input id="isHighlightEmptyRG" type="checkbox" /><label class="check" for="isHighlightEmptyRG"><div></div></label></div>
+
       <dl>
        <dt>Text to add empty resource groups :<dt><dd><input id="addText" type="text" size="55" /></dd>
        <dt>Empty resource group color :<dt><dd> <input id="color" type="color" style="width:35%;" /></dd>
@@ -25,12 +27,13 @@
     <h3>Masking settings</h3>
     <div style="margin-left:30px;">
       <dl>
-       <dt>Make your account name:<dt><dd><input id="isUsernameBluer" type="checkbox" /><label class="check" for="isUsernameBluer"><div></div></label></dd>
-       <dt>Make your AAD tenant name :<dt><dd> <input id="isAADTenantBluer" type="checkbox" /><label class="check" for="isAADTenantBluer"><div></div></label></dd>
+       <dt>Mask your account name?:<dt><dd><input id="isUsernameBluer" type="checkbox" /><label class="check" for="isUsernameBluer"><div></div></label></dd>
+       <dt>Mask your AAD tenant name?dt><dd> <input id="isAADTenantBluer" type="checkbox" /><label class="check" for="isAADTenantBluer"><div></div></label></dd>
       </dl>
     </div>
     <h4>Refresh Azure portal tab after clicking "save" button to reflect settings.</h4>
-    <input id="save_button" type="button" value="save">
+    <input id="save_button" type="button" value="save"> <b style="color: red; ">Refresh Azure Portal page after saving settings</b>
+    <div style="height: 5px;"></div>
     <!-- 
       <hr sytle="width:4px;">
       <h3>AccessToken for your Azure subscriptions</h3>

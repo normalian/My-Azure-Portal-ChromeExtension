@@ -11,7 +11,8 @@ const extentionSettings = {
   addText : " - @@empty@@",
   color : "#ffff00",
   isUsernameBluer : false,
-  isAADTenantBluer : false
+  isAADTenantBluer : false,
+  isHighlightEmptyRG : false
 };
 
 // This delay process is important to add elements on Azure portal for delay read.
@@ -37,6 +38,7 @@ function showMessageOnAzurePortalTopLoop() {
 						extentionSettings.opacity = items.opacity;
 						extentionSettings.isUsernameBluer = items.isUsernameBluer;
 						extentionSettings.isAADTenantBluer = items.isAADTenantBluer;
+						extentionSettings.isHighlightEmptyRG = items.isHighlightEmptyRG;
 
 						// call Bluer function after reading out settings
 						bluerUsernameAndAADTenant();
@@ -68,7 +70,7 @@ function doURICheckLoop() {
 	if( window.location.href.indexOf('resourceType/Microsoft.Resources%2Fsubscriptions%2FresourceGroups') != -1 ||
 		window.location.href.indexOf('blade/HubsExtension/BrowseResourceGroups') != -1
 	){
-		doUpdateResourcegrouplist();
+		if(extentionSettings.isHighlightEmptyRG) doUpdateResourcegrouplist();
 	}
 	setTimeout( () => doURICheckLoop(), 500);
 }

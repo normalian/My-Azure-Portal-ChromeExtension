@@ -3,11 +3,22 @@ My Azure Portal Extension
 
 This extension works to enhance user experience of [Microsoft Azure Portal](https://portal.azure.com/).
 
+## Supported browsers
+- Chrome
+- Edge - just open a like below and add Chrome Extension on your Edge browser
+
 ## How to install
 
-Visit https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh with Chrome browser and add this extension.
+Visit https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh with Edge or Chrome browser and add this extension.
 
-# Offering features
+## How to configure
+Click extension icon on your browser first, and click this extension icon to show setting page for this Extension.
+![extension setting image01](img/setting-01.png "extension setting image01")
+
+Setup this extension as you wish.
+![extension setting image02](img/setting-02.png "extension setting image02")
+
+## Offering features
 
 No.1: Highlight empty resourcegroups on Azure Portal like below.
 

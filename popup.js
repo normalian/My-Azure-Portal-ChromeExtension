@@ -11,6 +11,7 @@ var default_config = {
 	color : "#ffff00",
 	isUsernameBluer : false,
 	isAADTenantBluer : false,
+	isHighlightEmptyRG : false
 };
 
 $(function(){
@@ -22,13 +23,14 @@ $(function(){
 		$('#accesstoken').val(authorizationToken);
 	});
 
-	$('#save_button').click( function(){
+	$('#save_button').click(function(){
 		var imgUrl = $("#imgurl").val();
 		var opacity = $("#opacity").val();
 		var color = $("#color").val();
 		var addText = $("#addText").val();
 		var isUsernameBluer = $('#isUsernameBluer').is(":checked");
 		var isAADTenantBluer = $('#isAADTenantBluer').is(":checked");
+		var isHighlightEmptyRG = $('#isHighlightEmptyRG').is(":checked");
 
 		var config = {
 		  imgUrl: imgUrl,
@@ -36,7 +38,8 @@ $(function(){
 		  addText : addText,
 		  color : color,
 		  isUsernameBluer : isUsernameBluer,
-		  isAADTenantBluer : isAADTenantBluer
+		  isAADTenantBluer : isAADTenantBluer,
+		  isHighlightEmptyRG : isHighlightEmptyRG
 		};
 		chrome.storage.sync.set(config, function(){});
 	});
@@ -51,8 +54,20 @@ $(function(){
 			$("#addText").val(items.addText);
 			$("#isUsernameBluer").prop('checked', items.isUsernameBluer);
 			$("#isAADTenantBluer").prop('checked', items.isAADTenantBluer);
+			$("#isHighlightEmptyRG").prop('checked', items.isHighlightEmptyRG);
+
+			if(items.isHighlightEmptyRG == false){
+				$("#color").prop('disabled', true);
+				$("#addText").prop('disabled', true);
+			}
 		}
 	);
+
+	$('#isHighlightEmptyRG').change( function(){
+		var flag = !$("#isHighlightEmptyRG").prop('checked');
+		$("#color").prop('disabled', flag);
+		$("#addText").prop('disabled', flag);
+});
 
 	$("#opacity").on('input', function () {
 		$('#slider_val').text($("#opacity").val());
