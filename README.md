@@ -13,9 +13,11 @@ Visit https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghf
 
 ## How to configure
 Click extension icon on your browser first, and click this extension icon to show setting page for this Extension.
+
 ![extension setting image01](img/setting-01.png "extension setting image01")
 
 Setup this extension as you wish.
+
 ![extension setting image02](img/setting-02.png "extension setting image02")
 
 ## Offering features
