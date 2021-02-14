@@ -15,9 +15,16 @@ const extentionSettings = {
   isHighlightEmptyRG : false
 };
 
+const APP_CONST_VALUES = {
+	SELECT_STARTBOARD_LAYOUT : 'div.fxs-startboard-layout.fxs-flowlayout',
+	SELECT_HOME_CONTAINER : 'div.fxs-home-container.fxs-portal-text',
+	SELECT_USERNAME : 'div.fxs-avatarmenu-username',
+	SELECT_TENANTNAME : 'div.fxs-avatarmenu-tenant',
+};
+
 // This delay process is important to add elements on Azure portal for delay read.
 function showMessageOnAzurePortalTopLoop() {
-	const elem = jQuery('div.fxs-startboard-layout.fxs-flowlayout');
+	const elem = jQuery(APP_CONST_VALUES.SELECT_STARTBOARD_LAYOUT);
 	if( elem.length > 0 ){
 		port.postMessage({name: "get-subscriptions-accesstoken"});
 		port.onMessage.addListener( response => {
@@ -55,10 +62,10 @@ function showMessageOnAzurePortalTopLoop() {
 showMessageOnAzurePortalTopLoop();
 
 function setupWallpaperOnTop( imgUrl, opacity ){
-	var elem = jQuery('div.fxs-startboard-layout.fxs-flowlayout');
+	var elem = jQuery(APP_CONST_VALUES.SELECT_STARTBOARD_LAYOUT);
 	elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity );
 
-	var elem = jQuery('div.fxs-home-container.fxs-portal-text');
+	var elem = jQuery(APP_CONST_VALUES.SELECT_HOME_CONTAINER);
 	elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity );
 }
 
@@ -79,14 +86,14 @@ doURICheckLoop();
 function doUpdateResourcegrouplist(){
 	console.log('[Azure Portal Extention] doUpdateResourcegrouplist()')
 	// pick up top element of resource group list, this css class sometimes change depending on timing
-	const resourceArray = jQuery('div.fxc-gc-row-content');
+	const resourceArray = jQuery('div.fxc-gc-rows div.fxc-gc-row');
 
 	resourceArray.each( (index, elem) => {
 		// pickup resource grups name
-		const resourceGroupElem = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_0 a.fxc-gcflink-link');
+		const resourceGroupElem = jQuery(elem).find('div.fxc-gc-row-content a:nth-child(2)');
 		const resourceGroupName = resourceGroupElem.text();
 		// pick up subscription name
-		const subscriptionname = jQuery(elem).find('div.fxc-gc-cell.fxc-gc-columncell_0_1').text();
+		const subscriptionname  = jQuery(elem).find('div.fxc-gc-row-content a:nth-child(1)').text();
 		for( var i=0; i<emptyResourcegroups.count ; i++){
 			if(emptyResourcegroups.data.rows[i][6] ==  resourceGroupName &&
 				emptyResourcegroups.data.rows[i][17] == subscriptionname){
@@ -98,10 +105,10 @@ function doUpdateResourcegrouplist(){
 }
 
 function bluerUsernameAndAADTenant() {
-	const usernameElem = jQuery('div.fxs-avatarmenu-username');
+	const usernameElem = jQuery(APP_CONST_VALUES.SELECT_USERNAME);
 	if(usernameElem.length){
 		if(extentionSettings.isUsernameBluer == true) jQuery(usernameElem).attr('style','filter: blur(2px);');
-		if(extentionSettings.isAADTenantBluer == true) jQuery('div.fxs-avatarmenu-tenant').attr('style','filter: blur(2px);');
+		if(extentionSettings.isAADTenantBluer == true) jQuery(APP_CONST_VALUES.SELECT_TENANTNAME).attr('style','filter: blur(2px);');
 	}else{
 		setTimeout( () => bluerUsernameAndAADTenant(), 1000);
 	}
