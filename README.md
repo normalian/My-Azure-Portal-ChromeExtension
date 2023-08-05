@@ -5,14 +5,14 @@ This extension works to enhance user experience of [Microsoft Azure Portal](http
 
 ## Supported browsers
 - Chrome
-- Edge - just open a link below and add Chrome Extension on your Edge browser
+- Edge - just open a link as follows and add Chrome Extension on your Edge browser
 
 ## How to install
 
-Visit https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh with Edge or Chrome browser and add this extension.
+Open https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh with Edge or Chrome browser and add this extension.
 
 ## How to configure
-Click extension icon on your browser first, and click this extension icon to show setting page for this Extension.
+Click extension icon on your browser first, then setting popup of this Extension will be shown.
 
 ![extension setting image01](img/setting-01.png "extension setting image01")
 
@@ -22,15 +22,11 @@ Setup this extension as you wish.
 
 ## Offering features
 
-No.1: Highlight empty resourcegroups on Azure Portal like below.
-
-![extension usage image01](img/use-image-01.png "extension usage image01")
-
-No.2: Setup your wallpaper as you wish on Azure Portal top like below and you can also specify image url and image opacity.
+No.1: Configure Azure Portal background image as you wish by putting image url and image opacity.
 
 ![extension usage image02](img/use-image-02.png "extension usage image02")
 
-No.3: Bluer username or Azure AD Tenant name on Azure Portal.
+No.2: Bluer username or Entra Tenant name on Azure Portal.
 
 ![extension usage image02](img/use-image-03.png "extension usage image03")
 

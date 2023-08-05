@@ -1,9 +1,9 @@
 {
 	"name": "My Azure Portal Extention",
-	"version": "0.2.5",
-	"manifest_version": 2,
-	"description": "Setup background image on  Azure Portal, highlight empty resource groups, mask your username and Azure AD tenant name",
-	"browser_action": {
+	"version": "0.3.0",
+	"manifest_version": 3,
+	"description": "Setup background image on Azure Portal, and mask your username and Azure AD tenant name",
+	"action": {
 		"default_icon": "img/icon128.png",
 		"icons": {	"16": "img/icon16.png",
 					"48": "img/icon48.png",
@@ -13,24 +13,14 @@
 		"default_popup": "popup.html"
 	},
 	"permissions": [
-		"https://ms.portal.azure.com/*",
-		"https://portal.azure.com/*",
-		"https://afd.hosting.portal.azure.net/",
-		"https://web.vortex.data.microsoft.com/",
-		"https://management.azure.com/*",
-		"webRequest",
-		"webRequestBlocking",
-		"storage"
+		"storage",
+		"contextMenus"
 	],
 	"content_scripts": [
-	{
-		"matches": ["https://ms.portal.azure.com/*", "https://portal.azure.com/*"],
-		"js": ["jquery-3.5.1.min.js", "script.js"],
-		"run_at":"document_end"
+		{
+			"matches": ["https://ms.portal.azure.com/*", "https://portal.azure.com/*"],
+			"js": ["jquery-3.5.1.min.js", "script.js"],
+			"run_at": "document_end"
 		}
-	],
-	"background": {
-		"scripts": ["jquery-3.5.1.min.js", "background.js"],
-		"persistent": true
-	}
+	]
 }
