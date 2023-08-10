@@ -1,8 +1,8 @@
 {
 	"name": "My Azure Portal Extention",
-	"version": "0.3.0",
+	"version": "0.3.2",
 	"manifest_version": 3,
-	"description": "Setup background image on Azure Portal, and mask your username and Azure AD tenant name",
+	"description": "Configure background image on Azure Portal, highlight empty resource groups, and mask your username and Entra ID tenant name",
 	"action": {
 		"default_icon": "img/icon128.png",
 		"icons": {	"16": "img/icon16.png",
@@ -22,5 +22,9 @@
 			"js": ["jquery-3.5.1.min.js", "script.js"],
 			"run_at": "document_end"
 		}
-	]
+	],
+	"background": {
+		"service_worker": "background.js",
+		"type": "module"
+	}
 }

@@ -11,24 +11,33 @@ This extension works to enhance user experience of [Microsoft Azure Portal](http
 
 Open https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh with Edge or Chrome browser and add this extension.
 
-## How to configure
+## Features
+
+No.1: Highlight empty resource group.
+![extension usage image01](img/use-image-01.png "extension usage image01")
+
+No.2: Configure Azure Portal background image with image url and image opacity.
+![extension usage image02](img/use-image-02.png "extension usage image02")
+
+No.3: Bluer username or Entra Tenant name on Azure Portal.
+![extension usage image03](img/use-image-03.png "extension usage image03")
+
+## How to configure them
 Click extension icon on your browser first, then setting popup of this Extension will be shown.
 
 ![extension setting image01](img/setting-01.png "extension setting image01")
 
-Setup this extension as you wish.
+Configure this exntesion with the view as follows.
 
 ![extension setting image02](img/setting-02.png "extension setting image02")
 
-## Offering features
+In You can get AccessToken by executing "az account get-access-token" command. Refer the document as follows. 
+https://learn.microsoft.com/en-us/azure/healthcare-apis/get-access-token?tabs=azure-cli
+<span style="color: red; ">Note that AccessToek expires within 30-60min, so you have to replace new one if this extension does not works well.</span> 
 
-No.1: Configure Azure Portal background image as you wish by putting image url and image opacity.
+Check the error message with F12 Developer tool as follows when this extension does not works well. AccessToken is expired in this example. 
+![extension setting image03](img/setting-03.png "extension setting image03")
 
-![extension usage image02](img/use-image-02.png "extension usage image02")
-
-No.2: Bluer username or Entra Tenant name on Azure Portal.
-
-![extension usage image02](img/use-image-03.png "extension usage image03")
 
 ## Reference for development
 
@@ -39,6 +48,7 @@ No.2: Bluer username or Entra Tenant name on Azure Portal.
 - https://docs.microsoft.com/en-us/rest/api/
 - http://easyramble.com/chrome-storage-set-and-get.html
 - https://qiita.com/nulltypo/items/4e5c494971955c767531
+- https://learn.microsoft.com/en-us/azure/healthcare-apis/get-access-token?tabs=azure-cli
 
 ## Copyright
 <table>
