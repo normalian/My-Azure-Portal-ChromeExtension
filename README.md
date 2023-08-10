@@ -31,9 +31,10 @@ Configure this exntesion with the view as follows.
 
 ![extension setting image02](img/setting-02.png "extension setting image02")
 
-In You can get AccessToken by executing "az account get-access-token" command. Refer the document as follows. 
+You can get AccessToken by executing "az account get-access-token" command. Refer the document as follows. 
 https://learn.microsoft.com/en-us/azure/healthcare-apis/get-access-token?tabs=azure-cli
-<span style="color: red; ">Note that AccessToek expires within 30-60min, so you have to replace new one if this extension does not works well.</span> 
+
+@@@Note that AccessToek expires within 30-60min, so you have to replace new one if this extension does not works well@@@
 
 Check the error message with F12 Developer tool as follows when this extension does not works well. AccessToken is expired in this example. 
 ![extension setting image03](img/setting-03.png "extension setting image03")
