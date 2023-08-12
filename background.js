@@ -29,10 +29,10 @@ chrome.runtime.onConnect.addListener( port => {
                 for( var i=0; i<idArray.value.length ; i++){
                         // example of each subscriptionID item
                         // {
-                        //     "id": "/subscriptions/f5e8cee7-292a-4e38-a1b5-9c21fc881226",
+                        //     "id": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-9c21fc881226",
                         //     "authorizationSource": "RoleBased",
                         //     "managedByTenants": [],
-                        //     "subscriptionId": "f5e8cee7-292a-4e38-a1b5-9c21fc881226",
+                        //     "subscriptionId": "xxxxxxxx-xxxx-xxxx-xxxx-9c21fc881226",
                         //     "tenantId": "b7501d50-50bf-4080-bfaa-912394380b1a",
                         //     "displayName": "Microsoft Azure Enterprise",
                         //     "state": "Enabled",
