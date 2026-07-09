@@ -73,7 +73,7 @@ Click `save`, then click `Sign in` once.
 
 The extension uses the following permissions and hosts:
 
-- `identity`, `offscreen`, `storage`, `alarms`
+- `identity`, `storage`, `alarms`
 - `https://login.microsoftonline.com/*`
 - `https://management.azure.com/*`
 

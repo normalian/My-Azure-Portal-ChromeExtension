@@ -3,21 +3,19 @@
 	"version": "0.4.0",
 	"manifest_version": 3,
 	"description": "Configure background image on Azure Portal, highlight empty resource groups, and mask your username and Entra ID tenant name",
+	"icons": {
+		"16": "img/icon16.png",
+		"48": "img/icon48.png",
+		"128": "img/icon128.png"
+	},
 	"action": {
 		"default_icon": "img/icon128.png",
-		"icons": {	"16": "img/icon16.png",
-					"48": "img/icon48.png",
-					"128": "img/icon128.png" },
-					"scripts": ["jquery-3.5.1.min.js", "popup.js"],
-		"css": ["css/popup.css"],
 		"default_popup": "popup.html"
 	},
 	"permissions": [
 		"identity",
-		"offscreen",
 		"alarms",
-		"storage",
-		"contextMenus"
+		"storage"
 	],
 	"host_permissions": [
 		"https://login.microsoftonline.com/*",
