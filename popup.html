@@ -28,11 +28,21 @@
       <dl>
         <dt>Text to add empty resource groups :<dt><dd><input id="addText" type="text" size="45" /></dd>
         <dt>Empty resource group color :<dt><dd> <input id="color" type="color" style="width:35%;" /></dd>
-        <dt>AccessToken for your subscriptions :<dt><dd><input id="accesstoken" type="text" size="55" /> <br />
-          <b style="color: red; "> AccessToken expires within 30-60min, so replace new one when it expires.</b><br />
-          <a href="https://github.com/normalian/My-Azure-Portal-ChromeExtension" target="_blank">Refer to README of this extension how to check error and acquire AccessToken.</a>
-        </dd>
       </dl>
+    </div>
+
+    <h3>Azure ARM Authentication (Entra ID)</h3>
+    <div style="margin-left:30px;">
+      <dl>
+        <dt>Redirect URI (register this exact value):<dt><dd><input id="redirectUri" type="text" size="55" readonly disabled /></dd>
+        <dt>Tenant ID (or organizations):<dt><dd><input id="tenantId" type="text" size="55" placeholder="organizations" /></dd>
+        <dt>Client ID (App registration):<dt><dd><input id="clientId" type="text" size="55" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></dd>
+      </dl>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <input id="signin_button" type="button" value="Sign in">
+        <input id="signout_button" type="button" value="Sign out">
+      </div>
+      <div id="authStatus" style="margin-top:6px; font-size:12px;"></div>
     </div>
     <input id="save_button" type="button" value="save"> <b style="color: red; ">Refresh Azure portal tab with F5 or something after clicking "save" button</b>
     <div style="height: 5px;"></div>

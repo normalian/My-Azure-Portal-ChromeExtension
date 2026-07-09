@@ -1,6 +1,6 @@
 body {
     width: 500px;
-    height: 200px;
+    height: auto;
     min-width: 400px;
     min-height: 200px;
     background-color: rgb(243, 247, 253);

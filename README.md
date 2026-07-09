@@ -31,13 +31,53 @@ Configure this exntesion with the view as follows.
 
 ![extension setting image02](img/setting-02.png "extension setting image02")
 
-You can get AccessToken by executing "az account get-access-token" command. Refer the document as follows. 
-https://learn.microsoft.com/en-us/azure/healthcare-apis/get-access-token?tabs=azure-cli
+## Authentication for ARM API (Entra ID)
 
-@@@Note that AccessToek expires within 30-60min, so you have to replace new one if this extension does not works well@@@
+This extension now works as an independent OAuth client. It does not rely on the Azure portal session token.
 
-Check the error message with F12 Developer tool as follows when this extension does not works well. AccessToken is expired in this example. 
-![extension setting image03](img/setting-03.png "extension setting image03")
+### Important prerequisites
+
+- You must create and register a Service Principal (App registration) in Entra ID before using ARM authentication in this extension.
+  - MS Learn: https://learn.microsoft.com/entra/identity-platform/quickstart-register-app
+- In the extension popup, copy the value shown in **Redirect URI (register this exact value)** and register that exact value in the Service Principal Redirect URI.
+  - MS Learn: https://learn.microsoft.com/entra/identity-platform/how-to-add-redirect-uri
+- Register the Service Principal as **Single-page application (SPA)**.
+  - MS Learn: https://learn.microsoft.com/entra/identity-platform/v2-oauth2-auth-code-flow#redirect-uris-for-single-page-apps-spas
+
+### 1. Register an Entra ID app
+
+Create a new App registration in Entra ID and configure it as SPA.
+
+- Platform: Single-page application (SPA)
+- Redirect URI: value returned by `chrome.identity.getRedirectURL()`
+  - Example: `https://<your-extension-id>.chromiumapp.org/`
+- API permission: `https://management.azure.com/user_impersonation`
+- Recommended scopes in sign-in flow: `openid profile offline_access`
+
+### 2. Configure this extension
+
+Open the extension popup and set:
+
+- Tenant ID (or `organizations`)
+- Client ID (from App registration)
+
+Click `save`, then click `Sign in` once.
+
+### 3. Token lifecycle
+
+- Access and refresh tokens are saved in `chrome.storage.local`.
+- The service worker refreshes token silently before expiration using `chrome.alarms`.
+- If silent refresh cannot continue (e.g. revoked consent), sign in again from the popup.
+
+### 4. Required permissions (manifest)
+
+The extension uses the following permissions and hosts:
+
+- `identity`, `offscreen`, `storage`, `alarms`
+- `https://login.microsoftonline.com/*`
+- `https://management.azure.com/*`
+
+If ARM calls fail, check extension logs from the extension service worker in browser developer tools.
 
 
 ## Reference for development
