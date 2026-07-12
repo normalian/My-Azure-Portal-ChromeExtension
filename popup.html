@@ -2,49 +2,132 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8">
-    <title>Azure Portal Extention Configuration Wizard</title>
+    <title>Azure Portal Extension Configuration Wizard</title>
     <link rel="stylesheet" href="css/popup.css" type="text/css">
     <script src="jquery-3.5.1.min.js"></script>
     <script src="popup.js"></script>
   </head>
   <body>
-    <h3>Background image settings</h3>
-    <div style="margin-left:30px;">
-      <dl>
-       <dt>Image URL:<dt><dd><input id="imgurl" type="text" size="55" placeholder="https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg" /></dd>
-       <dt>Image Opacity:<dt><dd> <input id="opacity" type="range" min="0" max="1" step="0.1" size="10" /><div>Opacity is <span id="slider_val"></span></div></dd>
-      </dl>
-    </div>
-    <h3>Masking settings</h3>
-    <div style="margin-left:30px;">
-      <dl>
-       <dt>Mask your account name?:</dt><dd><input id="isUsernameBluer" type="checkbox" /><label class="check" for="isUsernameBluer"><div></div></label></dd>
-       <dt>Mask your AAD tenant name?:</dt><dd> <input id="isAADTenantBluer" type="checkbox" /><label class="check" for="isAADTenantBluer"><div></div></label></dd>
-      </dl>
-    </div>
-    <h3>Highlight empty resource groups settings</h3>
-    <div style="margin-left:30px;">
-      <div>Highlight empty resource group?<dt><dd><input id="isHighlightEmptyRG" type="checkbox" /><label class="check" for="isHighlightEmptyRG"><div></div></label></div>
-      <dl>
-        <dt>Text to add empty resource groups :<dt><dd><input id="addText" type="text" size="45" /></dd>
-        <dt>Empty resource group color :<dt><dd> <input id="color" type="color" style="width:35%;" /></dd>
-      </dl>
-    </div>
+    <div class="app-shell">
+      <header class="app-header">
+        <p class="eyebrow">Azure Portal</p>
+        <h1>Extension Settings</h1>
+        <p class="subtitle">UI personalization and ARM authentication in one place.</p>
+      </header>
 
-    <h3>Azure ARM Authentication (Entra ID)</h3>
-    <div style="margin-left:30px;">
-      <dl>
-        <dt>Redirect URI (register this exact value):<dt><dd><input id="redirectUri" type="text" size="55" readonly disabled /></dd>
-        <dt>Tenant ID (or organizations):<dt><dd><input id="tenantId" type="text" size="55" placeholder="organizations" /></dd>
-        <dt>Client ID (App registration):<dt><dd><input id="clientId" type="text" size="55" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></dd>
-      </dl>
-      <div style="display:flex; gap:8px; margin-top:6px;">
-        <input id="signin_button" type="button" value="Sign in">
-        <input id="signout_button" type="button" value="Sign out">
-      </div>
-      <div id="authStatus" style="margin-top:6px; font-size:12px;"></div>
+      <main class="settings-grid">
+        <section class="settings-card">
+          <h2>Background Image</h2>
+          <div class="field-group">
+            <label for="imgurl">Image URL</label>
+            <input id="imgurl" type="text" placeholder="https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg" />
+          </div>
+          <div class="field-group">
+            <div class="field-inline">
+              <label for="opacity">Image Opacity</label>
+              <span class="value-pill"><span id="slider_val"></span></span>
+            </div>
+            <input id="opacity" type="range" min="0" max="1" step="0.1" />
+          </div>
+        </section>
+
+        <section class="settings-card">
+          <h2>Masking</h2>
+          <div class="field-row toggle-row">
+            <div class="field-copy">
+              <label for="isUsernameBluer">Mask your account name</label>
+              <p>Blur account display text in the portal header.</p>
+            </div>
+            <div class="field-control">
+              <input id="isUsernameBluer" type="checkbox" />
+              <label class="check" for="isUsernameBluer"><div></div></label>
+            </div>
+          </div>
+          <div class="field-row toggle-row">
+            <div class="field-copy">
+              <label for="isAADTenantBluer">Mask your AAD tenant name</label>
+              <p>Hide tenant text to protect screenshots and screen shares.</p>
+            </div>
+            <div class="field-control">
+              <input id="isAADTenantBluer" type="checkbox" />
+              <label class="check" for="isAADTenantBluer"><div></div></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-card">
+          <h2>Empty Resource Groups</h2>
+          <div class="field-row toggle-row">
+            <div class="field-copy">
+              <label for="isHighlightEmptyRG">Highlight empty resource groups</label>
+              <p>Add visual cues to quickly clean up unused groups.</p>
+            </div>
+            <div class="field-control">
+              <input id="isHighlightEmptyRG" type="checkbox" />
+              <label class="check" for="isHighlightEmptyRG"><div></div></label>
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="addText">Text to append</label>
+            <input id="addText" type="text" />
+          </div>
+          <div class="field-group">
+            <label for="color">Highlight color</label>
+            <input id="color" type="color" />
+          </div>
+        </section>
+
+        <section class="settings-card auth-card">
+          <h2>Azure ARM Authentication (Entra ID)</h2>
+          <div class="field-group">
+            <label for="redirectUri">Redirect URI (register this exact value)</label>
+            <input id="redirectUri" type="text" readonly disabled />
+          </div>
+          <div class="field-group">
+            <label for="tenantId">Tenant ID</label>
+            <input id="tenantId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+          <div class="field-group">
+            <label for="clientId">Client ID (App registration)</label>
+            <input id="clientId" type="text" placeholder="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy" />
+          </div>
+          <div class="button-row">
+            <input id="signin_button" type="button" value="Sign in">
+            <input id="signout_button" type="button" value="Sign out">
+          </div>
+          <div id="authStatus"></div>
+        </section>
+
+        <section class="settings-card">
+          <h2>Usage Telemetry (Opt-in)</h2>
+          <div class="field-row toggle-row">
+            <div class="field-copy">
+              <label for="telemetryOptIn">Share anonymous usage counts</label>
+              <p>Default is OFF. Only feature name, count, and extension version are sent.</p>
+            </div>
+            <div class="field-control">
+              <input id="telemetryOptIn" type="checkbox" />
+              <label class="check" for="telemetryOptIn"><div></div></label>
+            </div>
+          </div>
+          <div id="telemetryStatus"></div>
+          <div id="telemetryDevTools" class="dev-tools" hidden>
+            <div class="field-copy dev-copy">
+              <label for="sendTelemetryNowButton">Developer tools</label>
+              <p>Visible only for unpacked development installs. Sends the current local telemetry buffer immediately.</p>
+            </div>
+            <div class="button-row dev-button-row">
+              <input id="sendTelemetryNowButton" type="button" value="Send telemetry now">
+            </div>
+            <div id="telemetryDevStatus"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <input id="save_button" type="button" value="Save settings">
+        <p class="save-hint">After saving, refresh your Azure portal tab with F5 to apply changes.</p>
+      </footer>
     </div>
-    <input id="save_button" type="button" value="save"> <b style="color: red; ">Refresh Azure portal tab with F5 or something after clicking "save" button</b>
-    <div style="height: 5px;"></div>
   </body>
 </html>

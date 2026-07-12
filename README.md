@@ -9,7 +9,7 @@ This extension works to enhance user experience of [Microsoft Azure Portal](http
 
 ## How to install
 
-Open https://chrome.google.com/webstore/detail/my-azure-portal-extention/jdaghfledaciocaiddjgcaamlcdhijjh with Edge or Chrome browser and add this extension.
+Open [Chrome Web Store](https://chrome.google.com/webstore/detail/my-azure-portal-extension/jdaghfledaciocaiddjgcaamlcdhijjh) with Edge or Chrome browser and add this extension.
 
 ## Features
 

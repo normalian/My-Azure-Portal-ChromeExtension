@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Azure Portal Extension - Onboarding</title>
+    <style>
+      :root {
+        --bg: #eef6ff;
+        --panel: #ffffff;
+        --line: #c7dcf0;
+        --text: #1f3342;
+        --muted: #4f6678;
+        --primary: #0b78d1;
+        --primary-strong: #075d9f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI Variable Text", "Yu Gothic UI", "Meiryo", sans-serif;
+        color: var(--text);
+        background: linear-gradient(150deg, var(--bg) 0%, #ffffff 100%);
+      }
+
+      .container {
+        max-width: 760px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+        box-shadow: 0 8px 24px rgba(11, 120, 209, 0.12);
+        overflow: hidden;
+      }
+
+      .header {
+        padding: 18px;
+        background: linear-gradient(130deg, #0b78d1 0%, #1594eb 100%);
+        color: #fff;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .header p {
+        margin: 8px 0 0;
+        font-size: 13px;
+      }
+
+      .body {
+        padding: 18px;
+      }
+
+      .bullet {
+        margin: 0 0 14px;
+        padding-left: 18px;
+        color: var(--muted);
+      }
+
+      .section {
+        border-top: 1px dashed var(--line);
+        padding-top: 14px;
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .label h2 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .label p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      input[type="checkbox"] {
+        width: 22px;
+        height: 22px;
+      }
+
+      .field {
+        margin-top: 12px;
+      }
+
+      .field label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .field input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 12px;
+      }
+
+      .actions {
+        margin-top: 14px;
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #fff;
+      }
+
+      button.primary {
+        color: #fff;
+        border-color: var(--primary);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%);
+      }
+
+      #status {
+        margin-top: 10px;
+        min-height: 18px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <div class="header">
+          <h1>Welcome</h1>
+          <p>My Azure Portal Extension setup</p>
+        </div>
+        <div class="body">
+          <ul class="bullet">
+            <li>Usage telemetry is optional and OFF by default.</li>
+            <li>Only anonymous aggregated feature counts are sent.</li>
+            <li>No user identifier, tenant name, URL, or resource name is sent.</li>
+          </ul>
+
+          <div class="section">
+            <div class="row">
+              <div class="label">
+                <h2>Share anonymous usage telemetry</h2>
+                <p>You can change this anytime from popup settings.</p>
+              </div>
+              <input id="telemetryOptIn" type="checkbox" />
+            </div>
+
+            <div class="actions">
+              <button id="save" class="primary">Save and continue</button>
+              <button id="close">Close</button>
+            </div>
+            <div id="status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="onboarding.js"></script>
+  </body>
+</html>

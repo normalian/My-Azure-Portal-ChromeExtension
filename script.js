@@ -1,14 +1,19 @@
 'use strict';
 
-console.log('[Azure Portal Extention] start script.js');
+console.log('[Azure Portal Extension] start script.js');
 
 var emptyResourcegroups = []; // avoid reference exception on showMessageOnAzurePortalTopLoop() when it's initiating
 var isSettingsLoaded = false;
 const IS_TOP_WINDOW = window === window.top;
 const EMPTY_RG_CACHE_KEY = 'emptyResourcegroupsCache';
+const TELEMETRY_OPT_IN_KEY = 'telemetryOptIn';
+const TELEMETRY_MIN_INTERVAL_MS = 60 * 1000;
 var isEmptyRgFetchInFlight = false;
 var emptyRgFetchTimeoutId = null;
 var lastHighlightDebugAt = 0;
+var telemetryOptIn = false;
+var telemetryConsentReady = false;
+var telemetryLastSentAt = {};
 
 var port = null;
 const MYEXTENSION_SETTINGS = {
@@ -54,11 +59,47 @@ chrome.storage.local.get({ [EMPTY_RG_CACHE_KEY]: { data: [] } }, function(items)
 	emptyResourcegroups = items[EMPTY_RG_CACHE_KEY] || { data: [] };
 });
 
+chrome.storage.local.get({ [TELEMETRY_OPT_IN_KEY]: false }, function(items) {
+	telemetryOptIn = Boolean(items[TELEMETRY_OPT_IN_KEY]);
+	telemetryConsentReady = true;
+});
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
 	if (areaName === 'local' && changes[EMPTY_RG_CACHE_KEY]) {
 		emptyResourcegroups = changes[EMPTY_RG_CACHE_KEY].newValue || { data: [] };
 	}
+	if (areaName === 'local' && changes[TELEMETRY_OPT_IN_KEY]) {
+		telemetryOptIn = Boolean(changes[TELEMETRY_OPT_IN_KEY].newValue);
+		telemetryConsentReady = true;
+	}
 });
+
+function emitFeatureUseTelemetry(featureName) {
+	if (!telemetryConsentReady || telemetryOptIn !== true) {
+		return;
+	}
+
+	const now = Date.now();
+	const lastAt = telemetryLastSentAt[featureName] || 0;
+	if (now - lastAt < TELEMETRY_MIN_INTERVAL_MS) {
+		return;
+	}
+
+	telemetryLastSentAt[featureName] = now;
+	try {
+		chrome.runtime.sendMessage({
+			name: 'telemetry-feature-use',
+			featureName: featureName,
+			count: 1
+		}, function() {
+			if (chrome.runtime.lastError) {
+				// Ignore when background worker is temporarily unavailable.
+			}
+		});
+	} catch (e) {
+		// no-op
+	}
+}
 
 function onPortDisconnected() {
 	port = null;
@@ -147,6 +188,10 @@ function setupWallpaperOnTop( imgUrl, opacity ){
 
 	var elem = jQuery(APP_CONST_VALUES.SELECT_HOME_CONTAINER);
 	elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity );
+
+	if (imgUrl) {
+		emitFeatureUseTelemetry('background-image');
+	}
 }
 
 function doURICheckLoop() {
@@ -387,7 +432,7 @@ function doUpdateResourcegrouplist(){
 	if(emptyRgData.length === 0){
 		const now = Date.now();
 		if (now - lastHighlightDebugAt > 5000) {
-			console.log('[Azure Portal Extention] highlight-scan skipped: empty cache data, href=', window.location.href);
+			console.log('[Azure Portal Extension] highlight-scan skipped: empty cache data, href=', window.location.href);
 			lastHighlightDebugAt = now;
 		}
 		return;
@@ -492,7 +537,7 @@ function doUpdateResourcegrouplist(){
 				})
 				.filter(x => x.text || x.href);
 		}
-		console.log('[Azure Portal Extention] highlight-scan', {
+		console.log('[Azure Portal Extension] highlight-scan', {
 			href: window.location.href,
 			rows: resourceArray.length,
 			emptyRgCount: emptyRgData.length,
@@ -503,6 +548,10 @@ function doUpdateResourcegrouplist(){
 			sampleCandidates: sampleCandidates
 		});
 		lastHighlightDebugAt = now;
+	}
+
+	if (highlightedCount > 0) {
+		emitFeatureUseTelemetry('highlight-empty-resourcegroups');
 	}
 }
 
@@ -517,12 +566,18 @@ function bluerUsernameAndAADTenantLoop() {
 
 	if(MYEXTENSION_SETTINGS.isUsernameBluer == true){
 		jQuery(usernameElem).css('filter','blur(2px)');
+		if (usernameElem.length > 0) {
+			emitFeatureUseTelemetry('mask-username');
+		}
 	}else{
 		jQuery(usernameElem).css('filter','');
 	}
 
 	if(MYEXTENSION_SETTINGS.isAADTenantBluer == true){
 		jQuery(tenantElem).css('filter','blur(2px)');
+		if (tenantElem.length > 0) {
+			emitFeatureUseTelemetry('mask-tenant');
+		}
 	}else{
 		jQuery(tenantElem).css('filter','');
 	}
