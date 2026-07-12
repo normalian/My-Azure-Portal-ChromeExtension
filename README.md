@@ -22,6 +22,9 @@ No.2: Configure Azure Portal background image with image url and image opacity.
 No.3: Bluer username or Entra Tenant name on Azure Portal.
 ![extension usage image03](img/use-image-03.png "extension usage image03")
 
+No.4: Entra ID sign-in with automatic token refresh for ARM API calls.
+![extension setting image02](img/setting-02.png "extension setting image02")
+
 ## How to configure them
 Click extension icon on your browser first, then setting popup of this Extension will be shown.
 
@@ -31,9 +34,25 @@ Configure this exntesion with the view as follows.
 
 ![extension setting image02](img/setting-02.png "extension setting image02")
 
+For ARM API authentication in v0.4.0, this is now a sign-in flow:
+
+1. Enter `Tenant ID` and `Client ID`.
+2. Click `save`.
+3. Click `Sign in`.
+
+No manual access-token copy/paste is required.
+
 ## Authentication for ARM API (Entra ID)
 
 This extension now works as an independent OAuth client. It does not rely on the Azure portal session token.
+
+### Quick start (v0.4.0)
+
+1. Register an Entra ID App as SPA (one-time setup).
+2. Set `Tenant ID` and `Client ID` in the popup.
+3. Click `Sign in`.
+
+The extension stores tokens in `chrome.storage.local` and refreshes them automatically before expiration.
 
 ### Important prerequisites
 
@@ -69,6 +88,12 @@ Click `save`, then click `Sign in` once.
 - The service worker refreshes token silently before expiration using `chrome.alarms`.
 - If silent refresh cannot continue (e.g. revoked consent), sign in again from the popup.
 
+### Legacy flow (deprecated)
+
+Older versions used manual token acquisition (for example, running `az account get-access-token` and pasting a short-lived token into the extension).
+
+This workflow is deprecated in v0.4.0 and is no longer recommended.
+
 ### 4. Required permissions (manifest)
 
 The extension uses the following permissions and hosts:
@@ -78,6 +103,10 @@ The extension uses the following permissions and hosts:
 - `https://management.azure.com/*`
 
 If ARM calls fail, check extension logs from the extension service worker in browser developer tools.
+
+## Release notes
+
+See [CHANGELOG.md](CHANGELOG.md) for the v0.1.0 to v0.4.0 summary.
 
 
 ## Reference for development
@@ -89,7 +118,6 @@ If ARM calls fail, check extension logs from the extension service worker in bro
 - https://docs.microsoft.com/en-us/rest/api/
 - http://easyramble.com/chrome-storage-set-and-get.html
 - https://qiita.com/nulltypo/items/4e5c494971955c767531
-- https://learn.microsoft.com/en-us/azure/healthcare-apis/get-access-token?tabs=azure-cli
 
 ## Copyright
 <table>
