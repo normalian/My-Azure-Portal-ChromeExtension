@@ -1,6 +1,6 @@
 {
 	"name": "My Azure Portal Extension",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"manifest_version": 3,
 	"description": "Configure background image on Azure Portal, highlight empty resource groups, and mask your username and Entra ID tenant name",
 	"icons": {
@@ -14,7 +14,6 @@
 	},
 	"permissions": [
 		"identity",
-		"management",
 		"alarms",
 		"storage"
 	],

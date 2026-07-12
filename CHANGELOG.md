@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 This changelog was reconstructed from repository commit history.
 
+## [0.4.2] - 2026-07-12
+
+- Added:
+  - Release packaging script that builds `my-azure-portal-extension-v0.4.2.zip` from the template `background.js` and local secrets.
+  - GitHub Actions workflows for CI validation and release packaging.
+- Fixed:
+  - Telemetry opt-in saving now persists the checkbox state correctly when saving settings.
+- Changed:
+  - Moved the production Application Insights connection string out of the committed background worker and into local secret injection.
+
 ## [0.4.1] - 2026-07-12
 
 - Fixed:

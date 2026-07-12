@@ -77,7 +77,7 @@ Create a new App registration in Entra ID and configure it as SPA.
 
 Open the extension popup and set:
 
-- Tenant ID (or `organizations`)
+- Tenant ID
 - Client ID (from App registration)
 
 Click `save`, then click `Sign in` once.
@@ -107,6 +107,14 @@ If ARM calls fail, check extension logs from the extension service worker in bro
 ## Release notes
 
 See [CHANGELOG.md](CHANGELOG.md) for the v0.1.0 to v0.4.0 summary.
+
+## Release packaging
+
+1. Copy [secrets.local.example.json](secrets.local.example.json) to `secrets.local.json`.
+2. Put the production Application Insights connection string into `secrets.local.json`.
+3. Run `bash scripts/package.sh` to generate `dist/my-azure-portal-extension-v<version>.zip`.
+
+GitHub Actions now runs the same packaging flow in CI and release jobs. The release workflow expects a repository secret named `APPINSIGHTS_CONNECTION_STRING`.
 
 
 ## Reference for development

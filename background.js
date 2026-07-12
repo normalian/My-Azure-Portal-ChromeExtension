@@ -11,7 +11,8 @@ const TELEMETRY_OPT_IN_KEY = 'telemetryOptIn';
 const FEATURE_LAST_USED_AT_KEY = 'featureLastUsedAt';
 const FEATURE_LAST_USED_KEY = 'featureLastUsed';
 const MAX_TELEMETRY_BUFFER_SIZE = 300;
-const TELEMETRY_FIXED_CONNECTION_STRING = 'InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://example.in.applicationinsights.azure.com/;LiveEndpoint=https://example.livediagnostics.monitor.azure.com/;ApplicationId=00000000-0000-0000-0000-000000000000';
+const TELEMETRY_CONNECTION_STRING_PLACEHOLDER = '__APPINSIGHTS_CONNECTION_STRING__';
+const TELEMETRY_FIXED_CONNECTION_STRING = TELEMETRY_CONNECTION_STRING_PLACEHOLDER;
 
 console.log('[Azure Portal Extension] start background.js');
 
