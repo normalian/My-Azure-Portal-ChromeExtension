@@ -8,6 +8,7 @@ var DEFAULT_CONFIG = {
 	isUsernameBluer : false,
 	isAADTenantBluer : false,
 	isHighlightEmptyRG : false,
+	isShowDirectUserRbac : true,
 	addText : " - @@empty@@",
 	color : "#ffff00"
 };
@@ -156,6 +157,7 @@ $(function(){
 		var isAADTenantBluer = $('#isAADTenantBluer').is(":checked");
 
 		var isHighlightEmptyRG = $('#isHighlightEmptyRG').is(":checked");
+		var isShowDirectUserRbac = $('#isShowDirectUserRbac').is(':checked');
 		var color = $("#color").val();
 		var addText = $("#addText").val();
 
@@ -165,6 +167,7 @@ $(function(){
 			isUsernameBluer : isUsernameBluer,
 			isAADTenantBluer : isAADTenantBluer,
 			isHighlightEmptyRG : isHighlightEmptyRG,
+			isShowDirectUserRbac : isShowDirectUserRbac,
 			addText : addText,
 			color : color
 		};
@@ -190,6 +193,7 @@ $(function(){
 			$("#color").val(items.color);
 			$("#addText").val(items.addText);
 			$("#isHighlightEmptyRG").prop('checked', items.isHighlightEmptyRG);
+			$('#isShowDirectUserRbac').prop('checked', items.isShowDirectUserRbac);
 			if(items.isHighlightEmptyRG == false){
 				$("#color").prop('disabled', true);
 				$("#addText").prop('disabled', true);

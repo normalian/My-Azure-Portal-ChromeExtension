@@ -1,7 +1,10 @@
 'use strict';
 
 const subscriptionIDs = [];
+let subscriptions = [];
 const ARM_SCOPE = 'https://management.azure.com/user_impersonation';
+const GRAPH_SCOPE = 'https://graph.microsoft.com/User.ReadBasic.All';
+const GRAPH_TOKEN_CACHE_KEY = 'graphOAuthTokenCache';
 const AUTH_ALARM_NAME = 'refresh-arm-token';
 const TOKEN_SAFETY_WINDOW_MS = 5 * 60 * 1000;
 const TELEMETRY_ALARM_NAME = 'telemetry-daily-upload';
@@ -367,13 +370,13 @@ async function exchangeAuthorizationCode(config, code, codeVerifier) {
     return payload;
 }
 
-async function refreshAccessToken(config, refreshToken) {
+async function refreshAccessToken(config, refreshToken, scope = ARM_SCOPE) {
     const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(config.tenantId)}/oauth2/v2.0/token`;
     const body = new URLSearchParams({
         client_id: config.clientId,
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
-        scope: `openid profile offline_access ${ARM_SCOPE}`,
+        scope: `openid profile offline_access ${scope}`,
         redirect_uri: getRedirectUri()
     });
 
@@ -412,7 +415,7 @@ function scheduleTokenRefresh(expiresAt) {
 }
 
 async function clearTokenCache() {
-    await storageRemove('local', ['oauthTokenCache']);
+    await storageRemove('local', ['oauthTokenCache', GRAPH_TOKEN_CACHE_KEY]);
     await chrome.alarms.clear(AUTH_ALARM_NAME);
 }
 
@@ -480,6 +483,139 @@ async function acquireAccessToken({ interactiveFallback }) {
     }
 
     throw new Error('No access token is available. Please sign in from the extension popup.');
+}
+
+async function acquireGraphAccessToken() {
+    const current = await storageGet('local', {
+        oauthTokenCache: null,
+        [GRAPH_TOKEN_CACHE_KEY]: null
+    });
+    const graphCache = current[GRAPH_TOKEN_CACHE_KEY];
+    const armCache = current.oauthTokenCache;
+    const config = await getOAuthConfig();
+    ensureOAuthConfig(config);
+
+    if (graphCache?.accessToken && graphCache?.expiresAt &&
+        (graphCache.expiresAt - Date.now()) > TOKEN_SAFETY_WINDOW_MS) {
+        return graphCache.accessToken;
+    }
+    if (!armCache?.refreshToken) {
+        throw new Error('No refresh token is available for Microsoft Graph.');
+    }
+
+    const payload = await refreshAccessToken(config, armCache.refreshToken, GRAPH_SCOPE);
+    const expiresAt = Date.now() + (Number(payload.expires_in) * 1000);
+    await storageSet('local', {
+        [GRAPH_TOKEN_CACHE_KEY]: {
+            accessToken: payload.access_token,
+            refreshToken: payload.refresh_token || armCache.refreshToken,
+            expiresAt,
+            scope: payload.scope,
+            tokenType: payload.token_type || 'Bearer'
+        }
+    });
+    return payload.access_token;
+}
+
+async function fetchPagedValues(url, token) {
+    const values = [];
+    let nextUrl = url;
+    while (nextUrl) {
+        const response = await fetch(nextUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!response.ok) {
+            throw new Error('Azure API request failed (HTTP ' + response.status + ').');
+        }
+        const payload = await response.json();
+        if (Array.isArray(payload.value)) {
+            values.push(...payload.value);
+        }
+        nextUrl = payload.nextLink || '';
+    }
+    return values;
+}
+
+function getRoleDefinitionUrl(subscriptionId, roleDefinitionId) {
+    const roleId = String(roleDefinitionId || '').split('/').pop();
+    return 'https://management.azure.com/subscriptions/' +
+        encodeURIComponent(subscriptionId) +
+        '/providers/Microsoft.Authorization/roleDefinitions/' +
+        encodeURIComponent(roleId) +
+        '?api-version=2022-04-01';
+}
+
+async function resolveUserNames(principalIds, graphToken) {
+    const result = {};
+    let failed = false;
+    await Promise.all(principalIds.map(async (principalId) => {
+        try {
+            const response = await fetch(
+                'https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(principalId) +
+                '?$select=displayName,userPrincipalName,mail',
+                {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${graphToken}` }
+                }
+            );
+            if (!response.ok) {
+                failed = true;
+                return;
+            }
+            const user = await response.json();
+            result[principalId] = user.userPrincipalName || user.mail || user.displayName || principalId;
+        } catch (error) {
+            failed = true;
+            console.warn('[Azure Portal Extension] user name lookup failed:', principalId);
+        }
+    }));
+    return { names: result, failed };
+}
+
+async function getDirectUserAssignments(subscriptionId, scopeUrl, token, roleNameCache) {
+    const assignments = await fetchPagedValues(
+        scopeUrl + '/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01&%24filter=atScope()',
+        token
+    );
+    const expectedScope = decodeURIComponent(new URL(scopeUrl).pathname)
+        .replace(/\/+$/, '')
+        .toLowerCase();
+    const users = assignments.filter((assignment) =>
+        assignment?.properties?.principalType === 'User' &&
+        String(assignment?.properties?.scope || '')
+            .replace(/\/+$/, '')
+            .toLowerCase() === expectedScope
+    );
+    return Promise.all(users.map(async (assignment) => {
+        const properties = assignment.properties;
+        const roleDefinitionId = properties.roleDefinitionId || '';
+        const roleKey = roleDefinitionId.toLowerCase();
+        if (!roleNameCache[roleKey]) {
+            const response = await fetch(getRoleDefinitionUrl(subscriptionId, roleDefinitionId), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (response.ok) {
+                const roleDefinition = await response.json();
+                roleNameCache[roleKey] =
+                    roleDefinition?.properties?.roleName || roleDefinition?.name || roleDefinitionId;
+            } else {
+                roleNameCache[roleKey] = roleDefinitionId;
+            }
+        }
+        return {
+            principalId: properties.principalId,
+            roleName: roleNameCache[roleKey],
+            scope: properties.scope
+        };
+    }));
 }
 
 async function initializeTokenRefreshAlarm() {
@@ -594,6 +730,7 @@ chrome.runtime.onConnect.addListener( port => {
             if( arg.name == "get-subscriptions-accesstoken" ){
                 const token = await acquireAccessToken({ interactiveFallback: false });
                 subscriptionIDs.length = 0;
+                subscriptions = [];
                 var res = await fetch( "https://management.azure.com/subscriptions?api-version=2022-12-01", {
                     method: 'GET',
                     headers: {
@@ -611,6 +748,7 @@ chrome.runtime.onConnect.addListener( port => {
                     	});
                     	return false;
                 	}else{
+                    subscriptions = Array.isArray(idArray.value) ? idArray.value : [];
                     	//console.log(subscriptionIds);
                     	for( var i=0; i<idArray.value.length ; i++){
                             // example of each subscriptionID item
@@ -636,6 +774,96 @@ chrome.runtime.onConnect.addListener( port => {
                     	});
                 	}
                 	return true;
+            }
+
+            if (arg.name === 'get-direct-user-rbac-tree') {
+                const token = await acquireAccessToken({ interactiveFallback: false });
+                let graphToken = null;
+                try {
+                    graphToken = await acquireGraphAccessToken();
+                } catch (error) {
+                    console.warn('[Azure Portal Extension] Graph user lookup unavailable:', error.message);
+                }
+
+                const roleNameCache = {};
+                const tree = [];
+                for (const subscription of subscriptions) {
+                    const subscriptionId = subscription.subscriptionId;
+                    const subscriptionScope = '/subscriptions/' + encodeURIComponent(subscriptionId);
+                    const subscriptionAssignments = await getDirectUserAssignments(
+                        subscriptionId,
+                        'https://management.azure.com' + subscriptionScope,
+                        token,
+                        roleNameCache
+                    );
+                    const resourceGroups = await fetchPagedValues(
+                        'https://management.azure.com' + subscriptionScope +
+                        '/resourceGroups?api-version=2021-04-01',
+                        token
+                    );
+                    const resourceGroupNodes = [];
+                    for (const resourceGroup of resourceGroups) {
+                        const resourceGroupName = resourceGroup.name;
+                        const resourceGroupScope = subscriptionScope +
+                            '/resourceGroups/' + encodeURIComponent(resourceGroupName);
+                        const assignments = await getDirectUserAssignments(
+                            subscriptionId,
+                            'https://management.azure.com' + resourceGroupScope,
+                            token,
+                            roleNameCache
+                        );
+                        if (assignments.length > 0) {
+                            resourceGroupNodes.push({
+                                name: resourceGroupName,
+                                assignments
+                            });
+                        }
+                    }
+                    if (subscriptionAssignments.length > 0 || resourceGroupNodes.length > 0) {
+                        tree.push({
+                            name: subscription.displayName || subscription.name || subscriptionId,
+                            subscriptionId,
+                            assignments: subscriptionAssignments,
+                            resourceGroups: resourceGroupNodes
+                        });
+                    }
+                }
+
+                const principalIds = [];
+                tree.forEach((subscription) => {
+                    const allAssignments = subscription.assignments.concat(
+                        subscription.resourceGroups.flatMap((resourceGroup) => resourceGroup.assignments)
+                    );
+                    allAssignments.forEach((assignment) => {
+                        if (assignment.principalId && !principalIds.includes(assignment.principalId)) {
+                            principalIds.push(assignment.principalId);
+                        }
+                    });
+                });
+                const resolvedUsers = graphToken
+                    ? await resolveUserNames(principalIds, graphToken)
+                    : { names: {}, failed: principalIds.length > 0 };
+                const userNames = resolvedUsers.names;
+                tree.forEach((subscription) => {
+                    const allAssignments = subscription.assignments.concat(
+                        subscription.resourceGroups.flatMap((resourceGroup) => resourceGroup.assignments)
+                    );
+                    allAssignments.forEach((assignment) => {
+                        assignment.principalName = userNames[assignment.principalId] || assignment.principalId;
+                    });
+                });
+                port.postMessage({
+                    name: 'get-direct-user-rbac-tree',
+                    rbacTree: {
+                        tenantId: subscriptions[0]?.tenantId || '',
+                        data: tree,
+                        nameResolution: graphToken && !resolvedUsers.failed ? 'graph' : 'principalId',
+                        nameResolutionWarning: resolvedUsers.failed && principalIds.length > 0
+                            ? 'User names could not be resolved. Add User.ReadBasic.All as a Microsoft Graph delegated API permission to the App registration, grant admin consent, and sign in again.'
+                            : ''
+                    }
+                });
+                return true;
             }
 
             if( arg.name=="get-empty-resourcegroups"){
@@ -665,7 +893,9 @@ chrome.runtime.onConnect.addListener( port => {
             }
         } catch (error) {
             port.postMessage({
-                name: 'get-access-function',
+                name: arg?.name === 'get-direct-user-rbac-tree'
+                    ? 'get-direct-user-rbac-tree'
+                    : 'get-access-function',
                 error: error.message || String(error)
             });
         }

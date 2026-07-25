@@ -3,6 +3,7 @@
 console.log('[Azure Portal Extension] start script.js');
 
 var emptyResourcegroups = []; // avoid reference exception on showMessageOnAzurePortalTopLoop() when it's initiating
+var directUserRbacTree = { data: [], loading: true };
 var isSettingsLoaded = false;
 const IS_TOP_WINDOW = window === window.top;
 const EMPTY_RG_CACHE_KEY = 'emptyResourcegroupsCache';
@@ -10,6 +11,7 @@ const TELEMETRY_OPT_IN_KEY = 'telemetryOptIn';
 const TELEMETRY_MIN_INTERVAL_MS = 60 * 1000;
 var isEmptyRgFetchInFlight = false;
 var emptyRgFetchTimeoutId = null;
+var rbacFetchInFlight = false;
 var lastHighlightDebugAt = 0;
 var telemetryOptIn = false;
 var telemetryConsentReady = false;
@@ -22,6 +24,7 @@ const MYEXTENSION_SETTINGS = {
   isUsernameBluer : false,
   isAADTenantBluer : false,
   isHighlightEmptyRG : false,
+  isShowDirectUserRbac : true,
   addText : " - @@empty@@",
 	color : "#ffff00"
 };
@@ -51,6 +54,7 @@ chrome.storage.sync.get(
 		MYEXTENSION_SETTINGS.isUsernameBluer = items.isUsernameBluer;
 		MYEXTENSION_SETTINGS.isAADTenantBluer = items.isAADTenantBluer;
 		MYEXTENSION_SETTINGS.isHighlightEmptyRG = items.isHighlightEmptyRG;
+		MYEXTENSION_SETTINGS.isShowDirectUserRbac = items.isShowDirectUserRbac;
 		isSettingsLoaded = true;
 	}
 );
@@ -71,6 +75,18 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 	if (areaName === 'local' && changes[TELEMETRY_OPT_IN_KEY]) {
 		telemetryOptIn = Boolean(changes[TELEMETRY_OPT_IN_KEY].newValue);
 		telemetryConsentReady = true;
+	}
+	if (areaName === 'sync' && changes.isShowDirectUserRbac) {
+		MYEXTENSION_SETTINGS.isShowDirectUserRbac =
+			changes.isShowDirectUserRbac.newValue !== false;
+		if (!MYEXTENSION_SETTINGS.isShowDirectUserRbac) {
+			const panel = document.querySelector('[data-azure-extension-rbac-panel]');
+			if (panel) {
+				panel.remove();
+			}
+		} else if (IS_TOP_WINDOW && isAzurePortalPage()) {
+			fetchEmptyResourcegroupsOnTop();
+		}
 	}
 });
 
@@ -116,6 +132,12 @@ function onPortMessage(response) {
 			try {
 				if (port) {
 					port.postMessage({name: "get-empty-resourcegroups"});
+					if (isAzurePortalPage() && MYEXTENSION_SETTINGS.isShowDirectUserRbac) {
+						rbacFetchInFlight = true;
+						directUserRbacTree = { data: [], loading: true };
+						renderDirectUserRbacTree();
+						port.postMessage({name: "get-direct-user-rbac-tree"});
+					}
 				}
 			} catch (e) {
 				onPortDisconnected();
@@ -136,6 +158,14 @@ function onPortMessage(response) {
 		emptyResourcegroups = response.emptyResourcegroups || { data: [] };
 		chrome.storage.local.set({ [EMPTY_RG_CACHE_KEY]: emptyResourcegroups }, function(){});
 		isEmptyRgFetchInFlight = false;
+	}else if(response.name == "get-direct-user-rbac-tree"){
+		directUserRbacTree = response.rbacTree || { data: [] };
+		directUserRbacTree.loading = false;
+		if (response.error) {
+			directUserRbacTree.error = response.error;
+		}
+		rbacFetchInFlight = false;
+		renderDirectUserRbacTree();
 	}
 }
 
@@ -199,6 +229,7 @@ function doURICheckLoop() {
 	setupWallpaperOnTop( MYEXTENSION_SETTINGS.imgUrl, MYEXTENSION_SETTINGS.opacity );
 
 	if(MYEXTENSION_SETTINGS.isHighlightEmptyRG) doUpdateResourcegrouplist();
+	renderDirectUserRbacTree();
 	
 	setTimeout( () => doURICheckLoop(), 500);
 }
@@ -242,6 +273,188 @@ function querySelectorAllDeep(selector) {
 
 	collectFromRoot(document);
 	return jQuery(results);
+}
+
+function isAzurePortalPage() {
+	const host = (window.location && window.location.hostname) ? window.location.hostname : '';
+	const href = (window.location && window.location.href) ? window.location.href : '';
+	return (
+		/(^|\.)portal\.azure\.com$/i.test(host) ||
+		/(^|\.)reactblade\.portal\.azure\.net$/i.test(host) ||
+		/(^|\.)reactblade-ms\.portal\.azure\.net$/i.test(host) ||
+		/(^|\.)reactblade-rc\.portal\.azure\.net$/i.test(host)
+	) && href.indexOf('/auth/login') === -1;
+}
+
+function escapeRbacHtml(value) {
+	return String(value || '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
+function renderRbacAssignments(assignments) {
+	const byPrincipal = {};
+	(assignments || []).forEach((assignment) => {
+		const principalName = assignment.principalName || assignment.principalId;
+		if (!byPrincipal[principalName]) {
+			byPrincipal[principalName] = [];
+		}
+		if (!byPrincipal[principalName].includes(assignment.roleName)) {
+			byPrincipal[principalName].push(assignment.roleName);
+		}
+	});
+
+	return Object.keys(byPrincipal).sort().map((principalName) =>
+		'<li><strong>' + escapeRbacHtml(principalName) + '</strong> - ' +
+		byPrincipal[principalName].sort().map(escapeRbacHtml).join(', ') + '</li>'
+	).join('');
+}
+
+function renderDirectUserRbacTree() {
+	if (!IS_TOP_WINDOW || !isAzurePortalPage() ||
+		MYEXTENSION_SETTINGS.isShowDirectUserRbac === false) {
+		const panel = document.querySelector('[data-azure-extension-rbac-panel]');
+		if (panel) {
+			panel.remove();
+		}
+		return;
+	}
+
+	let panel = document.querySelector('[data-azure-extension-rbac-panel]');
+	if (!panel) {
+		panel = document.createElement('aside');
+		panel.setAttribute('data-azure-extension-rbac-panel', 'true');
+		panel.style.cssText = [
+			'position:fixed',
+			'top:110px',
+			'right:20px',
+			'z-index:2147483647',
+			'width:420px',
+			'max-height:75vh',
+			'overflow:auto',
+			'background:#ffffff',
+			'color:#1f1f1f',
+			'border:1px solid #8a8886',
+			'border-radius:6px',
+			'box-shadow:0 8px 24px rgba(0,0,0,.28)',
+			'font:14px Segoe UI,Arial,sans-serif',
+			'line-height:1.45'
+		].join(';');
+		const header = document.createElement('div');
+		header.setAttribute('data-azure-extension-rbac-header', 'true');
+		header.style.cssText = [
+			'display:flex',
+			'align-items:center',
+			'justify-content:space-between',
+			'gap:12px',
+			'padding:10px 12px',
+			'background:#0078d4',
+			'color:#ffffff',
+			'font-weight:600',
+			'cursor:move',
+			'user-select:none'
+		].join(';');
+
+		const title = document.createElement('span');
+		title.textContent = 'Direct user RBAC';
+		header.appendChild(title);
+
+		const toggleButton = document.createElement('button');
+		toggleButton.type = 'button';
+		toggleButton.textContent = 'Hide details';
+		toggleButton.style.cssText = [
+			'border:1px solid rgba(255,255,255,.8)',
+			'border-radius:3px',
+			'padding:3px 8px',
+			'background:transparent',
+			'color:#ffffff',
+			'cursor:pointer',
+			'font:12px Segoe UI,Arial,sans-serif'
+		].join(';');
+		header.appendChild(toggleButton);
+
+		const body = document.createElement('div');
+		body.setAttribute('data-azure-extension-rbac-body', 'true');
+		body.style.padding = '16px';
+		toggleButton.addEventListener('click', (event) => {
+			event.stopPropagation();
+			const isHidden = body.hidden;
+			body.hidden = !isHidden;
+			toggleButton.textContent = isHidden ? 'Hide details' : 'Show details';
+		});
+
+		let dragState = null;
+		header.addEventListener('mousedown', (event) => {
+			if (event.target === toggleButton) {
+				return;
+			}
+			const rect = panel.getBoundingClientRect();
+			dragState = {
+				offsetX: event.clientX - rect.left,
+				offsetY: event.clientY - rect.top
+			};
+			panel.style.right = 'auto';
+			document.body.style.userSelect = 'none';
+			event.preventDefault();
+		});
+		document.addEventListener('mousemove', (event) => {
+			if (!dragState) {
+				return;
+			}
+			panel.style.left = Math.max(0, event.clientX - dragState.offsetX) + 'px';
+			panel.style.top = Math.max(0, event.clientY - dragState.offsetY) + 'px';
+		});
+		document.addEventListener('mouseup', () => {
+			if (dragState) {
+				dragState = null;
+				document.body.style.userSelect = '';
+			}
+		});
+
+		panel.appendChild(header);
+		panel.appendChild(body);
+		document.body.appendChild(panel);
+	}
+
+	const data = Array.isArray(directUserRbacTree?.data)
+		? directUserRbacTree.data
+		: [];
+	const treeHtml = directUserRbacTree?.loading
+		? '<p>Loading direct user RBAC assignments for Subscription and Resource Group scopes...</p>' +
+			'<p style="font-size:12px;color:#8a6d1d">Note: If user names or role assignments are not displayed, add User.ReadBasic.All as a Microsoft Graph delegated API permission to the App registration, grant admin consent, and sign in again.</p>'
+		: directUserRbacTree?.error
+		? '<p style="color:#a4262c">Unable to load direct user RBAC assignments: ' +
+			escapeRbacHtml(directUserRbacTree.error) + '</p>'
+		: data.length === 0
+		? '<p>No direct user RBAC assignments were found at Subscription or Resource Group scope.</p>'
+		: data.map((subscription) => {
+			const subscriptionAssignments = renderRbacAssignments(subscription.assignments);
+			const resourceGroups = (subscription.resourceGroups || []).map((resourceGroup) =>
+				'<li><strong>Resource Group: ' + escapeRbacHtml(resourceGroup.name) + '</strong>' +
+				'<ul>' + renderRbacAssignments(resourceGroup.assignments) + '</ul></li>'
+			).join('');
+			const children = (subscriptionAssignments
+				? '<li><strong>Subscription scope</strong><ul>' + subscriptionAssignments + '</ul></li>'
+				: '') + resourceGroups;
+			return '<li><strong>Subscription: ' + escapeRbacHtml(subscription.name) + '</strong>' +
+				'<ul>' + children + '</ul>' +
+				'</li>';
+		}).join('');
+
+	const body = panel.querySelector('[data-azure-extension-rbac-body]');
+	body.innerHTML =
+		'<div style="font-size:12px;color:#605e5c;margin-bottom:10px">Tenant: ' +
+		escapeRbacHtml(directUserRbacTree?.tenantId || 'current tenant') + '</div>' +
+		'<div style="font-size:12px;color:#605e5c;margin-bottom:10px">' +
+		'Direct assignments only; inherited roles, groups, service principals, managed identities, Lighthouse, and resource-level roles are excluded.</div>' +
+		'<ul style="padding-left:20px;margin:0">' + treeHtml + '</ul>' +
+		(directUserRbacTree?.nameResolutionWarning
+			? '<p style="font-size:12px;color:#a4262c;margin-bottom:0">' +
+				escapeRbacHtml(directUserRbacTree.nameResolutionWarning) + '</p>'
+			: '');
 }
 
 function normalizeRgName(text) {

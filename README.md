@@ -13,7 +13,7 @@ Open [Chrome Web Store](https://chrome.google.com/webstore/detail/my-azure-porta
 
 ## Features
 
-No.1: Highlight empty resource group.
+No.1: Highlight empty resource group. **This feature is require to use No.5 Entra ID sign-in and App registration**.
 ![extension usage image01](img/use-image-01.png "extension usage image01")
 
 No.2: Configure Azure Portal background image with image url and image opacity.
@@ -22,8 +22,41 @@ No.2: Configure Azure Portal background image with image url and image opacity.
 No.3: Bluer username or Entra Tenant name on Azure Portal.
 ![extension usage image03](img/use-image-03.png "extension usage image03")
 
-No.4: Entra ID sign-in with automatic token refresh for ARM API calls.
+No.4: Show direct user RBAC list for subscription and resource groups. This feature is require to use App registration.
+![extension usage image04](img/use-image-04.png "extension usage image04")
+
+No.5: Entra ID sign-in with automatic token refresh for ARM API calls.
 ![extension setting image02](img/setting-02.png "extension setting image02")
+
+No.5: Show direct user RBAC assignments in a Subscription and Resource Group hierarchy. **This feature is require to use No.5 Entra ID sign-in and App registration**.
+
+### Direct user RBAC panel
+
+The panel is shown on authenticated Azure Portal pages and is enabled by default. It can be enabled or disabled from **Extension Settings > RBAC Visibility**. The colored header can be dragged, and the details can be collapsed or expanded.
+
+The panel displays:
+
+- Tenant ID
+- Subscription name
+- Direct user role assignments at Subscription scope
+- Direct user role assignments at Resource Group scope
+- Role names such as `Owner`, `Contributor`, and `Reader`
+- User principal names or email addresses when Microsoft Graph resolution is available
+
+The panel intentionally excludes:
+
+- Roles inherited from a parent scope
+- Group assignments
+- Service principals
+- Managed identities
+- Azure Lighthouse assignments
+- Resource-level assignments
+
+Only assignments whose `properties.scope` exactly matches the current Subscription or Resource Group scope are displayed. While data is being retrieved, the panel shows a loading message. If no matching assignments are found, it shows an explicit empty result message.
+
+If user names cannot be resolved, the panel falls back to principal IDs and displays this guidance:
+
+> Add `User.ReadBasic.All` as a Microsoft Graph delegated API permission to the App registration, grant admin consent, and sign in again.
 
 ## How to configure them
 Click extension icon on your browser first, then setting popup of this Extension will be shown.
@@ -70,8 +103,19 @@ Create a new App registration in Entra ID and configure it as SPA.
 - Platform: Single-page application (SPA)
 - Redirect URI: value returned by `chrome.identity.getRedirectURL()`
   - Example: `https://<your-extension-id>.chromiumapp.org/`
-- API permission: `https://management.azure.com/user_impersonation`
+- Delegated API permission: Azure Service Management `user_impersonation`
+- Delegated API permission: Microsoft Graph `User.ReadBasic.All` (required for user name resolution)
 - Recommended scopes in sign-in flow: `openid profile offline_access`
+
+### RBAC tree prerequisites
+
+The Direct user RBAC panel requires the following configuration:
+
+- Keep the delegated Azure Service Management `user_impersonation` permission.
+- Add the delegated Microsoft Graph `User.ReadBasic.All` permission to the App registration and grant admin consent.
+- The signed-in user must have `Microsoft.Authorization/roleAssignments/read` on the target subscriptions. The built-in **Reader** role normally provides the required read access.
+- The extension uses delegated authentication. The App registration's service principal does not need an additional Owner or Contributor role assignment for this feature.
+- After changing API permissions, reload the extension and sign in again.
 
 ### 2. Configure this extension
 
@@ -101,6 +145,7 @@ The extension uses the following permissions and hosts:
 - `identity`, `storage`, `alarms`
 - `https://login.microsoftonline.com/*`
 - `https://management.azure.com/*`
+- `https://graph.microsoft.com/*`
 
 If ARM calls fail, check extension logs from the extension service worker in browser developer tools.
 
