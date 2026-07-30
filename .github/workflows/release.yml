@@ -15,7 +15,21 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          version="$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")"
+          tag="v${version}"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${tag}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match manifest version ${version}." >&2
+            exit 1
+          fi
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Create secrets file from GitHub secret
         run: |
@@ -28,7 +42,17 @@ jobs:
       - name: Build release zip
         run: bash scripts/package.sh
 
-      - name: Upload release archive
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.zip
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/*.zip --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/*.zip \
+              --target "$GITHUB_SHA" \
+              --generate-notes \
+              --title "$RELEASE_TAG"
+          fi
