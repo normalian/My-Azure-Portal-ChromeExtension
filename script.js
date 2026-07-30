@@ -23,8 +23,9 @@ const MYEXTENSION_SETTINGS = {
   opacity : 0.8,
   isUsernameBluer : false,
   isAADTenantBluer : false,
+	isSubscriptionIdBluer : false,
   isHighlightEmptyRG : false,
-  isShowDirectUserRbac : true,
+	isShowDirectUserRbac : false,
   addText : " - @@empty@@",
 	color : "#ffff00"
 };
@@ -53,6 +54,7 @@ chrome.storage.sync.get(
 		MYEXTENSION_SETTINGS.opacity = items.opacity;
 		MYEXTENSION_SETTINGS.isUsernameBluer = items.isUsernameBluer;
 		MYEXTENSION_SETTINGS.isAADTenantBluer = items.isAADTenantBluer;
+		MYEXTENSION_SETTINGS.isSubscriptionIdBluer = items.isSubscriptionIdBluer;
 		MYEXTENSION_SETTINGS.isHighlightEmptyRG = items.isHighlightEmptyRG;
 		MYEXTENSION_SETTINGS.isShowDirectUserRbac = items.isShowDirectUserRbac;
 		isSettingsLoaded = true;
@@ -768,6 +770,88 @@ function doUpdateResourcegrouplist(){
 	}
 }
 
+function updateSubscriptionIdMask() {
+	const maskAttribute = 'data-my-azure-portal-subscription-id-mask';
+	if (MYEXTENSION_SETTINGS.isSubscriptionIdBluer !== true) {
+		const previouslyMasked = querySelectorAllDeep('[' + maskAttribute + ']');
+		previouslyMasked.each(function() {
+			const elem = this;
+			if (elem.tagName === 'SPAN') {
+				elem.replaceWith(document.createTextNode(elem.textContent || ''));
+			} else {
+				jQuery(elem).css('filter', '').removeAttr(maskAttribute);
+			}
+		});
+		return;
+	}
+
+	const subscriptionIdPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+	let maskedCount = 0;
+
+	function maskTextNodes(root) {
+		const textNodes = [];
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+		let textNode = walker.nextNode();
+		while (textNode) {
+			const parent = textNode.parentElement;
+			if (
+				parent &&
+				!parent.closest('script, style, textarea, [' + maskAttribute + ']') &&
+				subscriptionIdPattern.test(textNode.nodeValue || '')
+			) {
+				textNodes.push(textNode);
+			}
+			subscriptionIdPattern.lastIndex = 0;
+			textNode = walker.nextNode();
+		}
+
+		textNodes.forEach(function(node) {
+			const value = node.nodeValue || '';
+			const fragment = document.createDocumentFragment();
+			let lastIndex = 0;
+			let match = subscriptionIdPattern.exec(value);
+
+			while (match) {
+				fragment.appendChild(document.createTextNode(value.slice(lastIndex, match.index)));
+				const maskedSpan = document.createElement('span');
+				maskedSpan.setAttribute(maskAttribute, 'true');
+				maskedSpan.style.display = 'inline-block';
+				maskedSpan.style.filter = 'blur(4px)';
+				maskedSpan.textContent = match[0];
+				fragment.appendChild(maskedSpan);
+				lastIndex = match.index + match[0].length;
+				maskedCount++;
+				match = subscriptionIdPattern.exec(value);
+			}
+			subscriptionIdPattern.lastIndex = 0;
+			fragment.appendChild(document.createTextNode(value.slice(lastIndex)));
+			node.replaceWith(fragment);
+		});
+
+		const allElems = root.querySelectorAll ? root.querySelectorAll('*') : [];
+		for (let i = 0; i < allElems.length; i++) {
+			if (allElems[i].shadowRoot) {
+				maskTextNodes(allElems[i].shadowRoot);
+			}
+		}
+	}
+
+	maskTextNodes(document);
+
+	querySelectorAllDeep('input, textarea').each(function() {
+		const elem = this;
+		if (!elem.hasAttribute(maskAttribute) && subscriptionIdPattern.test(elem.value || '')) {
+			jQuery(elem).attr(maskAttribute, 'true').css('filter', 'blur(4px)');
+			maskedCount++;
+		}
+		subscriptionIdPattern.lastIndex = 0;
+	});
+
+	if (maskedCount > 0) {
+		emitFeatureUseTelemetry('mask-subscription-id');
+	}
+}
+
 function bluerUsernameAndAADTenantLoop() {
 	if(!isSettingsLoaded){
 		setTimeout( () => bluerUsernameAndAADTenantLoop(), 300);
@@ -794,6 +878,8 @@ function bluerUsernameAndAADTenantLoop() {
 	}else{
 		jQuery(tenantElem).css('filter','');
 	}
+
+	updateSubscriptionIdMask();
 
 	setTimeout( () => bluerUsernameAndAADTenantLoop(), 1000);
 }

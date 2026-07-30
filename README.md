@@ -13,13 +13,13 @@ Open [Chrome Web Store](https://chrome.google.com/webstore/detail/my-azure-porta
 
 ## Features
 
-No.1: Highlight empty resource group. **This feature is require to use No.5 Entra ID sign-in and App registration**.
-![extension usage image01](img/use-image-01.png "extension usage image01")
+No.1: Blur displayed UUID-formatted subscription IDs  throughout Azure Portal.
+![extension usage image02](img/use-image-01.png "extension usage image01")
 
 No.2: Configure Azure Portal background image with image url and image opacity.
 ![extension usage image02](img/use-image-02.png "extension usage image02")
 
-No.3: Bluer username or Entra Tenant name on Azure Portal.
+No.3: Blur username, Entra tenant throughout Azure Portal.
 ![extension usage image03](img/use-image-03.png "extension usage image03")
 
 No.4: Show direct user RBAC list for subscription and resource groups. This feature is require to use App registration.
@@ -28,11 +28,14 @@ No.4: Show direct user RBAC list for subscription and resource groups. This feat
 No.5: Entra ID sign-in with automatic token refresh for ARM API calls.
 ![extension setting image02](img/setting-02.png "extension setting image02")
 
-No.5: Show direct user RBAC assignments in a Subscription and Resource Group hierarchy. **This feature is require to use No.5 Entra ID sign-in and App registration**.
+No.6: Highlight empty resource group. **This feature is require to use No.5 Entra ID sign-in and App registration**.
+![extension usage image01](img/use-image-06.png "extension usage image01")
+
+No.7: Show direct user RBAC assignments in a Subscription and Resource Group hierarchy. **This feature is require to use No.5 Entra ID sign-in and App registration**.
 
 ### Direct user RBAC panel
 
-The panel is shown on authenticated Azure Portal pages and is enabled by default. It can be enabled or disabled from **Extension Settings > RBAC Visibility**. The colored header can be dragged, and the details can be collapsed or expanded.
+The panel is disabled by default. It can be enabled or disabled from **Extension Settings > RBAC Visibility** on authenticated Azure Portal pages. The colored header can be dragged, and the details can be collapsed or expanded.
 
 The panel displays:
 

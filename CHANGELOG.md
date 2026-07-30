@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 This changelog was reconstructed from repository commit history.
 
+## [0.4.4] - 2026-07-30
+
+- Added:
+  - Optional masking for subscription IDs displayed in Azure Portal.
+- Changed:
+  - Direct user RBAC visibility is now disabled by default.
+
 ## [0.4.2] - 2026-07-12
 
 - Added:

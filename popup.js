@@ -7,8 +7,9 @@ var DEFAULT_CONFIG = {
 	opacity : 0.8,
 	isUsernameBluer : false,
 	isAADTenantBluer : false,
+	isSubscriptionIdBluer : false,
 	isHighlightEmptyRG : false,
-	isShowDirectUserRbac : true,
+	isShowDirectUserRbac : false,
 	addText : " - @@empty@@",
 	color : "#ffff00"
 };
@@ -155,6 +156,7 @@ $(function(){
 		var opacity = $("#opacity").val();
 		var isUsernameBluer = $('#isUsernameBluer').is(":checked");
 		var isAADTenantBluer = $('#isAADTenantBluer').is(":checked");
+		var isSubscriptionIdBluer = $('#isSubscriptionIdBluer').is(":checked");
 
 		var isHighlightEmptyRG = $('#isHighlightEmptyRG').is(":checked");
 		var isShowDirectUserRbac = $('#isShowDirectUserRbac').is(':checked');
@@ -166,6 +168,7 @@ $(function(){
 			opacity: opacity,
 			isUsernameBluer : isUsernameBluer,
 			isAADTenantBluer : isAADTenantBluer,
+			isSubscriptionIdBluer : isSubscriptionIdBluer,
 			isHighlightEmptyRG : isHighlightEmptyRG,
 			isShowDirectUserRbac : isShowDirectUserRbac,
 			addText : addText,
@@ -189,6 +192,7 @@ $(function(){
 			$('#slider_val').text($("#opacity").val());
 			$("#isUsernameBluer").prop('checked', items.isUsernameBluer);
 			$("#isAADTenantBluer").prop('checked', items.isAADTenantBluer);
+			$("#isSubscriptionIdBluer").prop('checked', items.isSubscriptionIdBluer);
 
 			$("#color").val(items.color);
 			$("#addText").val(items.addText);
