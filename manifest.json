@@ -1,6 +1,6 @@
 {
 	"name": "My Azure Portal Extension",
-	"version": "0.4.4",
+	"version": "0.5.0",
 	"manifest_version": 3,
 	"description": "Customize Azure Portal backgrounds, highlight empty resource groups, and mask account, tenant, and subscription details",
 	"icons": {

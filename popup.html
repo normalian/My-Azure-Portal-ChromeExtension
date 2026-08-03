@@ -10,17 +10,19 @@
   <body>
     <div class="app-shell">
       <header class="app-header">
-        <p class="eyebrow">Azure Portal</p>
+        <p class="eyebrow">My Azure Portal</p>
         <h1>Extension Settings</h1>
-        <p class="subtitle">UI personalization and ARM authentication in one place.</p>
+        <p class="subtitle">UI personalization and Entra ID authentication in one place.</p>
       </header>
 
       <main class="settings-grid">
+        <h3 class="group-heading" style="margin:4px 2px -2px;font-size:14px;color:#145d95;">Works without sign-in features</h3>
+
         <section class="settings-card">
           <h2>Background Image</h2>
           <div class="field-group">
             <label for="imgurl">Image URL</label>
-            <input id="imgurl" type="text" placeholder="https://daisamieastasia.blob.core.windows.net/img/IMG_1718.jpg" />
+            <input id="imgurl" type="text" placeholder="https://xxxxxxxxxxxx.blob.core.windows.net/img/mypicture.jpg" />
           </div>
           <div class="field-group">
             <div class="field-inline">
@@ -45,7 +47,7 @@
           </div>
           <div class="field-row toggle-row">
             <div class="field-copy">
-              <label for="isAADTenantBluer">Mask your AAD tenant name</label>
+              <label for="isAADTenantBluer">Mask your Entra ID tenant name</label>
               <p>Hide tenant text to protect screenshots and screen shares.</p>
             </div>
             <div class="field-control">
@@ -56,7 +58,7 @@
           <div class="field-row toggle-row">
             <div class="field-copy">
               <label for="isSubscriptionIdBluer">Mask subscription IDs</label>
-              <p>Blur subscription IDs shown in the portal.</p>
+              <p>Blur subscription IDs and other GUID-formatted values shown in the portal.</p>
             </div>
             <div class="field-control">
               <input id="isSubscriptionIdBluer" type="checkbox" />
@@ -65,6 +67,30 @@
           </div>
         </section>
 
+        <h3 class="group-heading" style="margin:4px 2px -2px;font-size:14px;color:#145d95;">Requires sign-in features</h3>
+
+        <section class="settings-card auth-card">
+          <h2>Azure ARM Authentication (Entra ID)</h2>
+          <p style="margin:0 0 10px;font-size:11px;color:#516679;">The sections below require completing sign-in here.</p>
+          <div class="field-group">
+            <label for="redirectUri">Redirect URI (register this exact value)</label>
+            <input id="redirectUri" type="text" readonly disabled />
+          </div>
+          <div class="field-group">
+            <label for="tenantId">Tenant ID</label>
+            <input id="tenantId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+          <div class="field-group">
+            <label for="clientId">Client ID (App registration)</label>
+            <input id="clientId" type="text" placeholder="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy" />
+          </div>
+          <div class="button-row">
+            <input id="signin_button" type="button" value="Sign in">
+            <input id="signout_button" type="button" value="Sign out">
+          </div>
+          <div id="authStatus"></div>
+        </section>
+        
         <section class="settings-card">
           <h2>Empty Resource Groups</h2>
           <div class="field-row toggle-row">
@@ -101,27 +127,7 @@
           </div>
         </section>
 
-        <section class="settings-card auth-card">
-          <h2>Azure ARM Authentication (Entra ID)</h2>
-          <div class="field-group">
-            <label for="redirectUri">Redirect URI (register this exact value)</label>
-            <input id="redirectUri" type="text" readonly disabled />
-          </div>
-          <div class="field-group">
-            <label for="tenantId">Tenant ID</label>
-            <input id="tenantId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-          </div>
-          <div class="field-group">
-            <label for="clientId">Client ID (App registration)</label>
-            <input id="clientId" type="text" placeholder="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy" />
-          </div>
-          <div class="button-row">
-            <input id="signin_button" type="button" value="Sign in">
-            <input id="signout_button" type="button" value="Sign out">
-          </div>
-          <div id="authStatus"></div>
-        </section>
-
+        <h3 class="group-heading" style="margin:4px 2px -2px;font-size:14px;color:#145d95;">User Volunteer</h3>
         <section class="settings-card">
           <h2>Usage Telemetry (Opt-in)</h2>
           <div class="field-row toggle-row">

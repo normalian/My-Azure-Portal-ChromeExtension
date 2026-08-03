@@ -881,6 +881,6 @@ function bluerUsernameAndAADTenantLoop() {
 
 	updateSubscriptionIdMask();
 
-	setTimeout( () => bluerUsernameAndAADTenantLoop(), 1000);
+	setTimeout( () => bluerUsernameAndAADTenantLoop(), 2000);
 }
 bluerUsernameAndAADTenantLoop();

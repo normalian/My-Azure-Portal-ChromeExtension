@@ -35,7 +35,7 @@ No.7: Show direct user RBAC assignments in a Subscription and Resource Group hie
 
 ### Direct user RBAC panel
 
-The panel is disabled by default. It can be enabled or disabled from **Extension Settings > RBAC Visibility** on authenticated Azure Portal pages. The colored header can be dragged, and the details can be collapsed or expanded.
+The panel is enabled by default. It can be enabled or disabled from **Extension Settings > RBAC Visibility** on authenticated Azure Portal pages. The colored header can be dragged, and the details can be collapsed or expanded.
 
 The panel displays:
 

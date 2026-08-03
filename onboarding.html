@@ -71,6 +71,40 @@
         padding-top: 14px;
       }
 
+      .feature-section {
+        margin-bottom: 18px;
+      }
+
+      .feature-section h2 {
+        margin: 0 0 8px;
+        font-size: 17px;
+        color: var(--text);
+      }
+
+      .feature-section p {
+        margin: 0 0 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .feature-section ul {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .feature-section li {
+        margin-bottom: 5px;
+      }
+
+      .feature-section .optional {
+        margin-top: 8px;
+        padding: 9px 10px;
+        border-left: 3px solid var(--primary);
+        background: #f2f8fe;
+      }
+
       .row {
         display: flex;
         justify-content: space-between;
@@ -150,6 +184,32 @@
           <p>My Azure Portal Extension setup</p>
         </div>
         <div class="body">
+          <div class="feature-section">
+            <h2>Enhance your Azure Portal experience</h2>
+            <p>My Azure Portal Extension adds practical customization, privacy, and administration features directly in your browser while you use the Azure Portal.</p>
+          </div>
+
+          <div class="feature-section">
+            <h2>Works immediately — no sign-in needed</h2>
+            <p>These features are available right away from the extension's settings popup. No setup is required.</p>
+            <ul>
+              <li>Custom background image for the Azure Portal, including URL and opacity settings</li>
+              <li>Mask your account name in the portal header</li>
+              <li>Mask your Microsoft Entra tenant name</li>
+              <li>Mask subscription IDs and other GUID-formatted values shown in the portal</li>
+            </ul>
+          </div>
+
+          <div class="feature-section">
+            <h2>Requires signing in (extra setup)</h2>
+            <p>These features call the Azure Resource Manager API on your behalf:</p>
+            <ul>
+              <li>Highlight empty resource groups</li>
+              <li>Direct user RBAC panel, showing your own role assignments per subscription and resource group</li>
+            </ul>
+            <p class="optional">To use them, sign in with your own Microsoft Entra ID account and complete a one-time setup by registering a small Entra ID App that you own, using its Tenant ID and Client ID. This is optional: if you only want the features in the section above, you can skip it entirely. See <a href="https://github.com/normalian/My-Azure-Portal-ChromeExtension#authentication-for-arm-api-entra-id" target="_blank">Register an Entra ID app</a> and <a href="https://github.com/normalian/My-Azure-Portal-ChromeExtension#quick-start-v040" target="_blank">Quick start (v0.4.0)</a> in the README.</p>
+          </div>
+
           <ul class="bullet">
             <li>Usage telemetry is optional and OFF by default.</li>
             <li>Only anonymous aggregated feature counts are sent.</li>
