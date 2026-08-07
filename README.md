@@ -4,12 +4,14 @@ My Azure Portal Extension
 This extension works to enhance user experience of [Microsoft Azure Portal](https://portal.azure.com/).
 
 ## Supported browsers
+
 - Chrome
-- Edge - just open a link as follows and add Chrome Extension on your Edge browser
+- Edge
 
 ## How to install
 
-Open [Chrome Web Store](https://chrome.google.com/webstore/detail/my-azure-portal-extension/jdaghfledaciocaiddjgcaamlcdhijjh) with Edge or Chrome browser and add this extension.
+- Chrome: Install from the [Chrome Web Store](https://chrome.google.com/webstore/detail/my-azure-portal-extension/jdaghfledaciocaiddjgcaamlcdhijjh).
+- Edge: Install from [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/my-azure-portal-extension/inlofbgpcpjnokcplddkedkdlhngeldg).
 
 ## Features
 
