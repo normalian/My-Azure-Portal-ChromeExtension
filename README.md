@@ -162,7 +162,11 @@ See [CHANGELOG.md](CHANGELOG.md) for the v0.1.0 to v0.4.0 summary.
 
 1. Copy [secrets.local.example.json](secrets.local.example.json) to `secrets.local.json`.
 2. Put the production Application Insights connection string into `secrets.local.json`.
-3. Run `bash scripts/package.sh` to generate `dist/my-azure-portal-extension-v<version>.zip`.
+3. Run `npm ci`.
+4. Run `npm run build` to compile the TypeScript sources.
+5. Run `bash scripts/package.sh` to generate `dist/my-azure-portal-extension-v<version>.zip`.
+
+The TypeScript sources are under `src/`. The extension root contains compiled output used by Chrome. The extension no longer depends on jQuery at runtime.
 
 GitHub Actions now runs the same packaging flow in CI and release jobs. The release workflow expects a repository secret named `APPINSIGHTS_CONNECTION_STRING`.
 

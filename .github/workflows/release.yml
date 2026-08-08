@@ -17,6 +17,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build TypeScript sources
+        run: npm run build
+
       - name: Resolve release tag
         id: release
         shell: bash

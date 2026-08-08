@@ -1,260 +1,238 @@
 'use strict';
-
-console.log('[Azure Portal Extension] start popup.js');
-
-var DEFAULT_CONFIG = {
-	imgUrl : '',
-	opacity : 0.8,
-	isUsernameBluer : false,
-	isAADTenantBluer : false,
-	isSubscriptionIdBluer : false,
-	isHighlightEmptyRG : false,
-	isShowDirectUserRbac : false,
-	addText : " - @@empty@@",
-	color : "#ffff00"
+const DEFAULT_SETTINGS = {
+    imgUrl: '',
+    opacity: 0.8,
+    maskAccountName: false,
+    maskTenantName: false,
+    maskSubscriptionIds: false,
+    highlightEmptyResourceGroups: false,
+    showDirectUserRbac: false,
+    addText: ' - @@empty@@',
+    color: '#ffff00'
 };
-
+function byId(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+        throw new Error(`Missing settings element: ${id}`);
+    }
+    return element;
+}
 function sendRuntimeMessage(message) {
-	return new Promise((resolve) => {
-		chrome.runtime.sendMessage(message, resolve);
-	});
+    return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve));
 }
-
-function getSelfManagementInfo() {
-	return new Promise((resolve) => {
-		if (!chrome.management?.getSelf) {
-			resolve(null);
-			return;
-		}
-
-		chrome.management.getSelf((info) => {
-			if (chrome.runtime.lastError) {
-				resolve(null);
-				return;
-			}
-
-			resolve(info || null);
-		});
-	});
+function setStatus(id, text, color = '#333') {
+    const element = byId(id);
+    element.textContent = text;
+    element.style.color = color;
 }
-
-async function isDevelopmentInstall() {
-	const selfInfo = await getSelfManagementInfo();
-	return selfInfo?.installType === 'development';
-}
-
 function updateAuthStatusText(result) {
-	if (!result || result.ok !== true) {
-		const errorText = result?.error || 'Failed to get authentication status.';
-		$('#authStatus').text(errorText).css('color', 'red');
-		return;
-	}
-
-	if (!result.signedIn) {
-		$('#authStatus').text('Not signed in').css('color', '#333');
-		return;
-	}
-
-	const expiresDate = new Date(result.expiresAt);
-	$('#authStatus').text(`Signed in (expires: ${expiresDate.toLocaleString()})`).css('color', '#0b6a0b');
+    if (!result?.ok) {
+        setStatus('authStatus', result?.error || 'Failed to get authentication status.', 'red');
+        return;
+    }
+    if (!result.signedIn) {
+        setStatus('authStatus', 'Not signed in');
+        return;
+    }
+    const expiresDate = new Date(result.expiresAt);
+    setStatus('authStatus', `Signed in (expires: ${expiresDate.toLocaleString()})`, '#0b6a0b');
 }
-
 async function loadOAuthConfig() {
-	const response = await sendRuntimeMessage({ name: 'oauth-config-get' });
-	if (response?.ok) {
-		$('#tenantId').val(response.config.tenantId || 'organizations');
-		$('#clientId').val(response.config.clientId || '');
-	}
+    const response = await sendRuntimeMessage({ name: 'oauth-config-get' });
+    if (response?.ok) {
+        byId('tenantId').value = response.config.tenantId || 'organizations';
+        byId('clientId').value = response.config.clientId || '';
+    }
 }
-
 async function saveOAuthConfig() {
-	const tenantId = $('#tenantId').val().trim() || 'organizations';
-	const clientId = $('#clientId').val().trim();
-	return sendRuntimeMessage({
-		name: 'oauth-config-set',
-		tenantId,
-		clientId
-	});
+    return sendRuntimeMessage({
+        name: 'oauth-config-set',
+        tenantId: byId('tenantId').value.trim() || 'organizations',
+        clientId: byId('clientId').value.trim()
+    });
 }
-
 async function refreshAuthStatus() {
-	const status = await sendRuntimeMessage({ name: 'auth-status' });
-	updateAuthStatusText(status);
+    updateAuthStatusText(await sendRuntimeMessage({ name: 'auth-status' }));
 }
-
 async function loadTelemetrySettings() {
-	const response = await sendRuntimeMessage({ name: 'telemetry-settings-get' });
-	if (!response?.ok) {
-		$('#telemetryStatus').text(response?.error || 'Failed to load telemetry settings.').css('color', 'red');
-		return;
-	}
-
-	const settings = response.telemetrySettings || {};
-	const enabled = Boolean(settings.enabled);
-	$('#telemetryOptIn').prop('checked', enabled);
-	$('#telemetryStatus').text(enabled ? 'Telemetry is enabled.' : 'Telemetry is disabled.').css('color', '#333');
+    const response = await sendRuntimeMessage({ name: 'telemetry-settings-get' });
+    if (!response?.ok) {
+        setStatus('telemetryStatus', response?.error || 'Failed to load telemetry settings.', 'red');
+        return;
+    }
+    const enabled = Boolean(response.telemetrySettings?.enabled);
+    byId('telemetryOptIn').checked = enabled;
+    setStatus('telemetryStatus', enabled ? 'Telemetry is enabled.' : 'Telemetry is disabled.');
 }
-
 async function saveTelemetrySettings() {
-	const enabled = $('#telemetryOptIn').is(':checked');
-
-	const response = await sendRuntimeMessage({
-		name: 'telemetry-settings-set',
-		telemetrySettings: {
-			enabled
-		}
-	});
-
-	if (!response?.ok) {
-		$('#telemetryStatus').text(response?.error || 'Failed to save telemetry settings.').css('color', 'red');
-		return { ok: false };
-	}
-
-	$('#telemetryStatus').text(enabled ? 'Telemetry enabled.' : 'Telemetry disabled.').css('color', '#0b6a0b');
-	return { ok: true };
+    const enabled = byId('telemetryOptIn').checked;
+    const response = await sendRuntimeMessage({
+        name: 'telemetry-settings-set',
+        telemetrySettings: { enabled }
+    });
+    if (!response?.ok) {
+        setStatus('telemetryStatus', response?.error || 'Failed to save telemetry settings.', 'red');
+        return { ok: false };
+    }
+    setStatus('telemetryStatus', enabled ? 'Telemetry enabled.' : 'Telemetry disabled.', '#0b6a0b');
+    return { ok: true };
 }
-
+function getSelfManagementInfo() {
+    return new Promise((resolve) => {
+        if (!chrome.management?.getSelf) {
+            resolve(null);
+            return;
+        }
+        chrome.management.getSelf((info) => resolve(chrome.runtime.lastError ? null : info || null));
+    });
+}
 async function configureDevTelemetryTools() {
-	const isDev = await isDevelopmentInstall();
-	if (!isDev) {
-		$('#telemetryDevTools').prop('hidden', true);
-		return;
-	}
-
-	$('#telemetryDevTools').prop('hidden', false);
-	$('#sendTelemetryNowButton').off('click').on('click', async function() {
-		$('#telemetryDevStatus').text('Sending buffered telemetry...').css('color', '#333');
-		$('#sendTelemetryNowButton').prop('disabled', true);
-
-		const result = await sendRuntimeMessage({ name: 'telemetry-send-now' });
-		if (!result?.ok) {
-			const message = result?.reason === 'disabled'
-				? 'Telemetry is disabled. Enable it and save before sending.'
-				: (result?.error || 'Failed to send telemetry.');
-			$('#telemetryDevStatus').text(message).css('color', 'red');
-			$('#sendTelemetryNowButton').prop('disabled', false);
-			return;
-		}
-
-		if (result.uploadedCount > 0) {
-			$('#telemetryDevStatus').text(`Sent ${result.uploadedCount} buffered telemetry event(s).`).css('color', '#0b6a0b');
-		} else {
-			$('#telemetryDevStatus').text('Telemetry buffer is empty. Nothing was sent.').css('color', '#333');
-		}
-
-		$('#sendTelemetryNowButton').prop('disabled', false);
-	});
+    const selfInfo = await getSelfManagementInfo();
+    const tools = byId('telemetryDevTools');
+    if (selfInfo?.installType !== 'development') {
+        tools.hidden = true;
+        return;
+    }
+    tools.hidden = false;
+    const button = byId('sendTelemetryNowButton');
+    button.addEventListener('click', async () => {
+        setStatus('telemetryDevStatus', 'Sending buffered telemetry...');
+        button.disabled = true;
+        const result = await sendRuntimeMessage({ name: 'telemetry-send-now' });
+        if (!result?.ok) {
+            setStatus('telemetryDevStatus', result?.reason === 'disabled'
+                ? 'Telemetry is disabled. Enable it and save before sending.'
+                : (result?.error || 'Failed to send telemetry.'), 'red');
+        }
+        else {
+            setStatus('telemetryDevStatus', result.uploadedCount > 0
+                ? `Sent ${result.uploadedCount} buffered telemetry event(s).`
+                : 'Telemetry buffer is empty. Nothing was sent.');
+        }
+        button.disabled = false;
+    });
 }
-
-$(function(){
-	// console.log('[Azure Portal Extension] Here is popup.js');
-	$('#redirectUri').val(chrome.identity.getRedirectURL());
-	$('#redirectUri').prop('readonly', true).prop('disabled', true);
-
-	$('#save_button').click(async function(){
-		var imgUrl = $("#imgurl").val();
-		var opacity = $("#opacity").val();
-		var isUsernameBluer = $('#isUsernameBluer').is(":checked");
-		var isAADTenantBluer = $('#isAADTenantBluer').is(":checked");
-		var isSubscriptionIdBluer = $('#isSubscriptionIdBluer').is(":checked");
-
-		var isHighlightEmptyRG = $('#isHighlightEmptyRG').is(":checked");
-		var isShowDirectUserRbac = $('#isShowDirectUserRbac').is(':checked');
-		var color = $("#color").val();
-		var addText = $("#addText").val();
-
-		var config = {
-			imgUrl: imgUrl,
-			opacity: opacity,
-			isUsernameBluer : isUsernameBluer,
-			isAADTenantBluer : isAADTenantBluer,
-			isSubscriptionIdBluer : isSubscriptionIdBluer,
-			isHighlightEmptyRG : isHighlightEmptyRG,
-			isShowDirectUserRbac : isShowDirectUserRbac,
-			addText : addText,
-			color : color
-		};
-		chrome.storage.sync.set(config, function(){});
-
-		const saved = await saveOAuthConfig();
-		if (!saved?.ok) {
-			$('#authStatus').text(saved?.error || 'Failed to save OAuth settings.').css('color', 'red');
-		}
-
-		await saveTelemetrySettings();
-	});
-
-	chrome.storage.sync.get(
-		DEFAULT_CONFIG,
-		function(items) {
-			$("#imgurl").val(items.imgUrl);
-			$("#opacity").val(items.opacity);
-			$('#slider_val').text($("#opacity").val());
-			$("#isUsernameBluer").prop('checked', items.isUsernameBluer);
-			$("#isAADTenantBluer").prop('checked', items.isAADTenantBluer);
-			$("#isSubscriptionIdBluer").prop('checked', items.isSubscriptionIdBluer);
-
-			$("#color").val(items.color);
-			$("#addText").val(items.addText);
-			$("#isHighlightEmptyRG").prop('checked', items.isHighlightEmptyRG);
-			$('#isShowDirectUserRbac').prop('checked', items.isShowDirectUserRbac);
-			if(items.isHighlightEmptyRG == false){
-				$("#color").prop('disabled', true);
-				$("#addText").prop('disabled', true);
-			}
-		}
-	);
-
-	loadOAuthConfig().then(refreshAuthStatus);
-	loadTelemetrySettings();
-	configureDevTelemetryTools();
-
-	$('#isHighlightEmptyRG').change( function(){
-		var flag = !$("#isHighlightEmptyRG").prop('checked');
-		$("#color").prop('disabled', flag);
-		$("#addText").prop('disabled', flag);
-	});
-
-	$("#opacity").on('input', function () {
-		$('#slider_val').text($("#opacity").val());
-	});
-
-	$('#telemetryOptIn').change(function() {
-		const enabled = $('#telemetryOptIn').is(':checked');
-		if (!enabled) {
-			$('#telemetryStatus').text('Telemetry is disabled.').css('color', '#333');
-		} else {
-			$('#telemetryStatus').text('Telemetry will be enabled on save.').css('color', '#333');
-		}
-	});
-
-	$('#signin_button').click(async function(){
-		if (!$('#clientId').val().trim()) {
-			$('#authStatus').text('Please enter Client ID.').css('color', 'red');
-			return;
-		}
-
-		const saved = await saveOAuthConfig();
-		if (!saved?.ok) {
-			$('#authStatus').text(saved?.error || 'Failed to save OAuth settings.').css('color', 'red');
-			return;
-		}
-
-		$('#authStatus').text('Signing in...').css('color', '#333');
-		const result = await sendRuntimeMessage({ name: 'auth-login' });
-		if (!result?.ok) {
-			$('#authStatus').text(result?.error || 'Sign-in failed.').css('color', 'red');
-			return;
-		}
-		await refreshAuthStatus();
-	});
-
-	$('#signout_button').click(async function(){
-		const result = await sendRuntimeMessage({ name: 'auth-logout' });
-		if (!result?.ok) {
-			$('#authStatus').text(result?.error || 'Sign-out failed.').css('color', 'red');
-			return;
-		}
-		await refreshAuthStatus();
-	});
+function saveSettings() {
+    const settings = {
+        imgUrl: byId('imgurl').value,
+        opacity: byId('opacity').value,
+        maskAccountName: byId('maskAccountName').checked,
+        maskTenantName: byId('maskTenantName').checked,
+        maskSubscriptionIds: byId('maskSubscriptionIds').checked,
+        highlightEmptyResourceGroups: byId('isHighlightEmptyRG').checked,
+        showDirectUserRbac: byId('showDirectUserRbac').checked,
+        addText: byId('addText').value,
+        color: byId('color').value
+    };
+    return new Promise((resolve, reject) => chrome.storage.sync.set({
+        imgUrl: settings.imgUrl,
+        opacity: settings.opacity,
+        maskAccountName: settings.maskAccountName,
+        maskTenantName: settings.maskTenantName,
+        maskSubscriptionIds: settings.maskSubscriptionIds,
+        highlightEmptyResourceGroups: settings.highlightEmptyResourceGroups,
+        showDirectUserRbac: settings.showDirectUserRbac,
+        isUsernameBluer: settings.maskAccountName,
+        isAADTenantBluer: settings.maskTenantName,
+        isSubscriptionIdBluer: settings.maskSubscriptionIds,
+        isHighlightEmptyRG: settings.highlightEmptyResourceGroups,
+        isShowDirectUserRbac: settings.showDirectUserRbac,
+        addText: settings.addText,
+        color: settings.color
+    }, () => {
+        if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+        }
+        resolve();
+    }));
+}
+function loadStoredSettings() {
+    chrome.storage.sync.get(null, (items) => {
+        byId('imgurl').value = String(items.imgUrl || '');
+        byId('opacity').value = String(items.opacity);
+        byId('slider_val').textContent = String(items.opacity);
+        byId('maskAccountName').checked =
+            items.maskAccountName ?? items.isUsernameBluer ?? false;
+        byId('maskTenantName').checked =
+            items.maskTenantName ?? items.isAADTenantBluer ?? false;
+        byId('maskSubscriptionIds').checked =
+            items.maskSubscriptionIds ?? items.isSubscriptionIdBluer ?? false;
+        byId('color').value = items.color;
+        byId('addText').value = items.addText;
+        byId('isHighlightEmptyRG').checked =
+            items.highlightEmptyResourceGroups ?? items.isHighlightEmptyRG ?? false;
+        byId('showDirectUserRbac').checked =
+            items.showDirectUserRbac ?? items.isShowDirectUserRbac ?? false;
+        updateEmptyResourceGroupControls();
+    });
+}
+function updateEmptyResourceGroupControls() {
+    const disabled = !byId('isHighlightEmptyRG').checked;
+    byId('color').disabled = disabled;
+    byId('addText').disabled = disabled;
+}
+class PopupSettingsController {
+    initialize() {
+        byId('redirectUri').value = chrome.identity.getRedirectURL();
+        byId('redirectUri').readOnly = true;
+        byId('redirectUri').disabled = true;
+        byId('save_button').addEventListener('click', async () => {
+            try {
+                await saveSettings();
+            }
+            catch (error) {
+                setStatus('authStatus', `Failed to save settings: ${error instanceof Error ? error.message : String(error)}`, 'red');
+                return;
+            }
+            const saved = await saveOAuthConfig();
+            if (!saved?.ok) {
+                setStatus('authStatus', saved?.error || 'Failed to save OAuth settings.', 'red');
+            }
+            await saveTelemetrySettings();
+        });
+        loadStoredSettings();
+        loadOAuthConfig().then(refreshAuthStatus);
+        loadTelemetrySettings();
+        configureDevTelemetryTools();
+        byId('isHighlightEmptyRG')
+            .addEventListener('change', updateEmptyResourceGroupControls);
+        byId('opacity').addEventListener('input', () => {
+            byId('slider_val').textContent = byId('opacity').value;
+        });
+        byId('telemetryOptIn').addEventListener('change', () => {
+            setStatus('telemetryStatus', byId('telemetryOptIn').checked
+                ? 'Telemetry will be enabled on save.'
+                : 'Telemetry is disabled.');
+        });
+        byId('signin_button').addEventListener('click', async () => {
+            if (!byId('clientId').value.trim()) {
+                setStatus('authStatus', 'Please enter Client ID.', 'red');
+                return;
+            }
+            const saved = await saveOAuthConfig();
+            if (!saved?.ok) {
+                setStatus('authStatus', saved?.error || 'Failed to save OAuth settings.', 'red');
+                return;
+            }
+            setStatus('authStatus', 'Signing in...');
+            const result = await sendRuntimeMessage({ name: 'auth-login' });
+            if (!result?.ok) {
+                setStatus('authStatus', result?.error || 'Sign-in failed.', 'red');
+                return;
+            }
+            await refreshAuthStatus();
+        });
+        byId('signout_button').addEventListener('click', async () => {
+            const result = await sendRuntimeMessage({ name: 'auth-logout' });
+            if (!result?.ok) {
+                setStatus('authStatus', result?.error || 'Sign-out failed.', 'red');
+                return;
+            }
+            await refreshAuthStatus();
+        });
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    new PopupSettingsController().initialize();
 });

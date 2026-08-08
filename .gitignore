@@ -2,3 +2,18 @@ secrets.local.json
 dist/
 *.zip
 analysislog/
+build/
+node_modules/
+
+# TypeScript and build intermediates
+*.tsbuildinfo
+*.log
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Local editor and operating system files
+.DS_Store
+Thumbs.db
+.vscode/

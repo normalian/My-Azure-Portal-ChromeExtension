@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <title>Azure Portal Extension Configuration Wizard</title>
     <link rel="stylesheet" href="css/popup.css" type="text/css">
-    <script src="jquery-3.5.1.min.js"></script>
     <script src="popup.js"></script>
   </head>
   <body>
@@ -37,32 +36,32 @@
           <h2>Masking</h2>
           <div class="field-row toggle-row">
             <div class="field-copy">
-              <label for="isUsernameBluer">Mask your account name</label>
+              <label for="maskAccountName">Mask your account name</label>
               <p>Blur account display text in the portal header.</p>
             </div>
             <div class="field-control">
-              <input id="isUsernameBluer" type="checkbox" />
-              <label class="check" for="isUsernameBluer"><div></div></label>
+              <input id="maskAccountName" type="checkbox" />
+              <label class="check" for="maskAccountName"><div></div></label>
             </div>
           </div>
           <div class="field-row toggle-row">
             <div class="field-copy">
-              <label for="isAADTenantBluer">Mask your Entra ID tenant name</label>
+              <label for="maskTenantName">Mask your Entra ID tenant name</label>
               <p>Hide tenant text to protect screenshots and screen shares.</p>
             </div>
             <div class="field-control">
-              <input id="isAADTenantBluer" type="checkbox" />
-              <label class="check" for="isAADTenantBluer"><div></div></label>
+              <input id="maskTenantName" type="checkbox" />
+              <label class="check" for="maskTenantName"><div></div></label>
             </div>
           </div>
           <div class="field-row toggle-row">
             <div class="field-copy">
-              <label for="isSubscriptionIdBluer">Mask subscription IDs</label>
+              <label for="maskSubscriptionIds">Mask subscription IDs</label>
               <p>Blur subscription IDs and other GUID-formatted values shown in the portal.</p>
             </div>
             <div class="field-control">
-              <input id="isSubscriptionIdBluer" type="checkbox" />
-              <label class="check" for="isSubscriptionIdBluer"><div></div></label>
+              <input id="maskSubscriptionIds" type="checkbox" />
+              <label class="check" for="maskSubscriptionIds"><div></div></label>
             </div>
           </div>
         </section>
@@ -117,12 +116,12 @@
           <h2>RBAC Visibility</h2>
           <div class="field-row toggle-row">
             <div class="field-copy">
-              <label for="isShowDirectUserRbac">Show direct user RBAC panel</label>
+              <label for="showDirectUserRbac">Show direct user RBAC panel</label>
               <p>Show direct user role assignments at Subscription and Resource Group scope.</p>
             </div>
             <div class="field-control">
-              <input id="isShowDirectUserRbac" type="checkbox" />
-              <label class="check" for="isShowDirectUserRbac"><div></div></label>
+              <input id="showDirectUserRbac" type="checkbox" />
+              <label class="check" for="showDirectUserRbac"><div></div></label>
             </div>
           </div>
         </section>

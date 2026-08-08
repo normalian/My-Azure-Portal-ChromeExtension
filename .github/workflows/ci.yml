@@ -14,6 +14,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build TypeScript sources
+        run: npm run build
+
       - name: Create temporary secrets file
         run: |
           cat > secrets.local.json <<'JSON'

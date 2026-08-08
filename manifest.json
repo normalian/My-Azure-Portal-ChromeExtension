@@ -1,6 +1,6 @@
 {
 	"name": "My Azure Portal Extension",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"manifest_version": 3,
 	"description": "Customize Azure Portal backgrounds, highlight empty resource groups, and mask account, tenant, and subscription details",
 	"icons": {
@@ -31,9 +31,17 @@
 				"https://portal.azure.com/*",
 				"https://*.reactblade.portal.azure.net/*",
 				"https://*.reactblade-ms.portal.azure.net/*",
-				"https://*.reactblade-rc.portal.azure.net/*"
+				"https://*.reactblade-rc.portal.azure.net/*",
+				"https://sandbox-1.reactblade.portal.azure.net/*",
+				"https://sandbox-2.reactblade.portal.azure.net/*",
+				"https://hosting.portal.azure.net/*",
+				"https://hosting-ms.portal.azure.net/*",
+				"https://hosting-rc.portal.azure.net/*",
+				"https://*.hosting.portal.azure.net/*",
+				"https://*.hosting-ms.portal.azure.net/*",
+				"https://*.hosting-rc.portal.azure.net/*"
 			],
-			"js": ["jquery-3.5.1.min.js", "script.js"],
+			"js": ["script.js"],
 			"run_at": "document_end",
 			"all_frames": true
 		}

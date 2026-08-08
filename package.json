@@ -1,0 +1,27 @@
+{
+  "name": "my-azure-portal-chromeextension",
+  "version": "0.5.0",
+  "private": true,
+  "description": "My Azure Portal Extension\r ============================",
+  "main": "background.js",
+  "scripts": {
+    "build": "tsc && node scripts/copy-build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/normalian/My-Azure-Portal-ChromeExtension.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/normalian/My-Azure-Portal-ChromeExtension/issues"
+  },
+  "homepage": "https://github.com/normalian/My-Azure-Portal-ChromeExtension#readme",
+  "devDependencies": {
+    "@types/chrome": "^0.2.5",
+    "typescript": "^7.0.2"
+  }
+}

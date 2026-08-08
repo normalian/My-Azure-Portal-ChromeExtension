@@ -78,7 +78,6 @@ for relative_path in [
     'onboarding.html',
     'onboarding.js',
     'script.js',
-    'jquery-3.5.1.min.js',
     'LICENSE',
 ]:
     copy_text(relative_path)
