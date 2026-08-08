@@ -158,6 +158,8 @@ If ARM calls fail, check extension logs from the extension service worker in bro
 
 See [CHANGELOG.md](CHANGELOG.md) for the v0.1.0 to v0.4.0 summary.
 
+Version-specific release notes are maintained in the [Release](Release) folder.
+
 ## Release packaging
 
 1. Copy [secrets.local.example.json](secrets.local.example.json) to `secrets.local.json`.

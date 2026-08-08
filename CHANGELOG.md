@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 This changelog was reconstructed from repository commit history.
 
+## [0.5.0] - 2026-08-02
+
+- Added:
+  - Improved first-run onboarding that distinguishes sign-in-free features from features requiring Entra ID App registration and sign-in.
+  - Explicit sign-in grouping and guidance in Extension Settings.
+- Changed:
+  - Preserved existing authentication and telemetry behavior.
+- Notes:
+  - Direct user RBAC remains disabled by default.
+
 ## [0.4.4] - 2026-07-30
 
 - Added:
@@ -77,5 +87,4 @@ This changelog was reconstructed from repository commit history.
 - 2019: Chrome compatibility and maintenance updates.
 - 2020-2021: Major feature expansion for UI customization and privacy masking.
 - 2023: Extension architecture modernization and feature recovery.
-- 2026: v0.4.0 authentication refresh milestone, followed by v0.4.1 maintenance and telemetry tooling updates.
-
+- 2026: v0.4.0 authentication refresh, v0.4.1 maintenance, v0.4.4 privacy masking, and v0.5.0 TypeScript and onboarding improvements.

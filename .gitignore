@@ -17,3 +17,6 @@ coverage/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Local presentation files
+My Azure Extension.pptx
