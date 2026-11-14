@@ -1,3 +1,4 @@
+(() => {
 'use strict';
 console.log('[Azure Portal Extension] start script.js', {
     frameHref: window.location.href,
@@ -76,113 +77,115 @@ function selectDom(selectorOrElements) {
     }
     return new DomCollection([selectorOrElements]);
 }
-var emptyResourceGroups = []; // avoid reference exception on showMessageOnAzurePortalTopLoop() when it's initiating
-var directUserRbacTree = { data: [], loading: true };
-var settingsLoaded = false;
+let emptyResourceGroupCache = { data: [] };
+let subscriptionBackgroundRules = [];
+let directUserRbacTree = { data: [], loading: true };
+let settingsLoaded = false;
 const IS_TOP_WINDOW = window === window.top;
-const EMPTY_RG_CACHE_KEY = 'emptyResourcegroupsCache';
-const TELEMETRY_OPT_IN_KEY = 'telemetryOptIn';
-const TELEMETRY_MIN_INTERVAL_MS = 60 * 1000;
-var isEmptyResourceGroupsFetchInFlight = false;
-var emptyResourceGroupsFetchTimeoutId = null;
-var isRbacFetchInFlight = false;
-var lastHighlightDebugAt = 0;
-var telemetryOptIn = false;
-var telemetryConsentReady = false;
-var telemetryLastSentAt = {};
-var port = null;
-const extensionSettings = {
-    imgUrl: null,
-    opacity: 0.8,
-    maskAccountName: false,
-    maskTenantName: false,
-    maskSubscriptionIds: false,
-    highlightEmptyResourceGroups: false,
-    showDirectUserRbac: false,
-    addText: " - @@empty@@",
-    color: "#ffff00"
+const { messages, storageKeys, storageGet, readPortalSettings, escapeHtml } = AzureExtension;
+const GUID_PATTERN = new RegExp(`\\b${AzureExtension.guidSource}\\b`, 'i');
+const PORTAL_TIMING = {
+    telemetryMinIntervalMs: 60 * 1000,
+    dataRequestTimeoutMs: 15 * 1000,
+    dataRefreshIntervalMs: 30 * 1000,
+    uiRefreshIntervalMs: 500,
+    settingsRetryIntervalMs: 300,
+    privacyRefreshIntervalMs: 2 * 1000,
+    highlightDebugIntervalMs: 5 * 1000
 };
+const MASK_STYLES = { header: 'blur(2px)', identifier: 'blur(4px)' };
+let isPortalDataFetchInFlight = false;
+let portalDataFetchTimeoutId = null;
+let lastHighlightDebugAt = 0;
+let telemetryOptIn = false;
+let telemetryConsentReady = false;
+const telemetryLastSentAt = {};
+let backgroundPort = null;
+const extensionSettings = { ...AzureExtension.defaultSettings };
+const originalTabIcons = new Map();
+let addedTabIcon = null;
+let lastTabIconError = '';
+const TAB_ICON_SELECTOR = 'link[rel~="icon" i]';
+const BLADE_ICON_SELECTOR = '.fxs-blade-title-icon, .fxs-blade-title-image, .fxs-blade-header-icon';
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const portalSelectors = {
     startboardLayout: 'div.fxs-startboard-layout.fxs-flowlayout',
     homeContainer: 'div.fxs-home-container.fxs-portal-text',
-    username: 'div.fxs-avatarmenu-username',
+    accountName: 'div.fxs-avatarmenu-username',
     tenantName: 'div.fxs-avatarmenu-tenant',
     resourceGroupUrls: [
         'resourceType/Microsoft.Resources%2Fsubscriptions%2FresourceGroups',
         'view/HubsExtension/BrowseResourceGroups'
     ],
-    resourceGroupName: 'div.fxc-gc-row-content a:nth-child(2)',
-    subscriptionName: 'div.fxc-gc-row-content a:nth-child(1)',
-    resourceGroupList: 'div.fxc-gc-rows div.fxc-gc-row'
+    resourceGroupName: 'div.fxc-gc-row-content a:nth-child(2)'
 };
-// read user setup info and setup wallpaper
-chrome.storage.sync.get(null, function (items) {
-    extensionSettings.color = items.color;
-    extensionSettings.addText = items.addText;
-    extensionSettings.imgUrl = items.imgUrl;
-    extensionSettings.opacity = items.opacity;
-    extensionSettings.maskAccountName =
-        items.maskAccountName ?? items.isUsernameBluer ?? false;
-    extensionSettings.maskTenantName =
-        items.maskTenantName ?? items.isAADTenantBluer ?? false;
-    extensionSettings.maskSubscriptionIds =
-        items.maskSubscriptionIds ?? items.isSubscriptionIdBluer ?? false;
-    extensionSettings.highlightEmptyResourceGroups =
-        items.highlightEmptyResourceGroups ?? items.isHighlightEmptyRG ?? false;
-    extensionSettings.showDirectUserRbac =
-        items.showDirectUserRbac ?? items.isShowDirectUserRbac ?? false;
+async function loadPortalSettings() {
+    const items = await storageGet('sync', null);
+    const previouslyShowingRbac = extensionSettings.showDirectUserRbac;
+    Object.assign(extensionSettings, readPortalSettings(items));
     settingsLoaded = true;
-});
-chrome.storage.local.get({ [EMPTY_RG_CACHE_KEY]: { data: [] } }, function (items) {
-    emptyResourceGroups = items[EMPTY_RG_CACHE_KEY] || { data: [] };
-});
-chrome.storage.local.get({ [TELEMETRY_OPT_IN_KEY]: false }, function (items) {
-    telemetryOptIn = Boolean(items[TELEMETRY_OPT_IN_KEY]);
-    telemetryConsentReady = true;
-});
-chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes[EMPTY_RG_CACHE_KEY]) {
-        emptyResourceGroups = changes[EMPTY_RG_CACHE_KEY].newValue || { data: [] };
+    updateAzureTabIcon();
+    if (!extensionSettings.showDirectUserRbac) {
+        document.querySelector('[data-azure-extension-rbac-panel]')?.remove();
     }
-    if (areaName === 'local' && changes[TELEMETRY_OPT_IN_KEY]) {
-        telemetryOptIn = Boolean(changes[TELEMETRY_OPT_IN_KEY].newValue);
+    else if (!previouslyShowingRbac && IS_TOP_WINDOW && isAzurePortalPage()) {
+        refreshPortalResourceData();
+    }
+}
+function logSettingsError(error) {
+    console.warn('[Azure Portal Extension] Unable to load settings:', error);
+}
+async function loadSubscriptionBackgroundRules() {
+    let items;
+    try {
+        items = await storageGet('sync', { [storageKeys.subscriptionBackgroundRules]: [] });
+    }
+    catch (error) {
+        console.warn('[Azure Portal Extension] Sync rules unavailable; reading local rules:', error);
+        items = await storageGet('local', { [storageKeys.subscriptionBackgroundRules]: [] });
+    }
+    subscriptionBackgroundRules = Array.isArray(items[storageKeys.subscriptionBackgroundRules])
+        ? items[storageKeys.subscriptionBackgroundRules]
+        : [];
+}
+loadPortalSettings().catch(logSettingsError);
+loadSubscriptionBackgroundRules().catch(logSettingsError);
+storageGet('local', { [storageKeys.emptyResourceGroups]: { data: [] } }).then((items) => {
+    emptyResourceGroupCache = items[storageKeys.emptyResourceGroups] || { data: [] };
+}).catch(logSettingsError);
+storageGet('local', { [storageKeys.telemetryOptIn]: false }).then((items) => {
+    telemetryOptIn = Boolean(items[storageKeys.telemetryOptIn]);
+    telemetryConsentReady = true;
+}).catch(logSettingsError);
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes[storageKeys.emptyResourceGroups]) {
+        storageGet('local', { [storageKeys.emptyResourceGroups]: { data: [] } })
+            .then((items) => { emptyResourceGroupCache = items[storageKeys.emptyResourceGroups]; })
+            .catch(logSettingsError);
+    }
+    if (areaName === 'local' && changes[storageKeys.telemetryOptIn]) {
+        telemetryOptIn = Boolean(changes[storageKeys.telemetryOptIn].newValue);
         telemetryConsentReady = true;
     }
-    if (areaName === 'sync' &&
-        (changes.showDirectUserRbac || changes.isShowDirectUserRbac)) {
-        const change = changes.showDirectUserRbac || changes.isShowDirectUserRbac;
-        extensionSettings.showDirectUserRbac =
-            change.newValue !== false;
-        if (!extensionSettings.showDirectUserRbac) {
-            const panel = document.querySelector('[data-azure-extension-rbac-panel]');
-            if (panel) {
-                panel.remove();
-            }
-        }
-        else if (IS_TOP_WINDOW && isAzurePortalPage()) {
-            fetchEmptyResourceGroups();
-        }
+    if (areaName === 'sync' && changes[storageKeys.subscriptionBackgroundRules]) {
+        const updatedRules = changes[storageKeys.subscriptionBackgroundRules].newValue;
+        subscriptionBackgroundRules = Array.isArray(updatedRules)
+            ? updatedRules
+            : [];
+    }
+    if (areaName === 'local' && changes[storageKeys.subscriptionBackgroundRules]) {
+        const updatedRules = changes[storageKeys.subscriptionBackgroundRules].newValue;
+        subscriptionBackgroundRules = Array.isArray(updatedRules)
+            ? updatedRules
+            : [];
     }
     if (areaName === 'sync') {
-        const readBooleanChange = (currentKey, legacyKey, fallback) => {
-            const change = changes[currentKey] || changes[legacyKey];
-            return change ? change.newValue !== false : null;
-        };
-        const accountMask = readBooleanChange('maskAccountName', 'isUsernameBluer', extensionSettings.maskAccountName);
-        const tenantMask = readBooleanChange('maskTenantName', 'isAADTenantBluer', extensionSettings.maskTenantName);
-        const subscriptionMask = readBooleanChange('maskSubscriptionIds', 'isSubscriptionIdBluer', extensionSettings.maskSubscriptionIds);
-        const emptyGroupHighlight = readBooleanChange('highlightEmptyResourceGroups', 'isHighlightEmptyRG', extensionSettings.highlightEmptyResourceGroups);
-        if (accountMask !== null) {
-            extensionSettings.maskAccountName = accountMask;
-        }
-        if (tenantMask !== null) {
-            extensionSettings.maskTenantName = tenantMask;
-        }
-        if (subscriptionMask !== null) {
-            extensionSettings.maskSubscriptionIds = subscriptionMask;
-        }
-        if (emptyGroupHighlight !== null) {
-            extensionSettings.highlightEmptyResourceGroups = emptyGroupHighlight;
+        const keys = Object.keys(extensionSettings);
+        if (keys.some((key) => {
+            const alias = AzureExtension.legacySettingKeys[key];
+            return changes[key] || (alias && changes[alias]);
+        })) {
+            loadPortalSettings().catch(logSettingsError);
         }
     }
 });
@@ -192,140 +195,177 @@ function emitFeatureUseTelemetry(featureName) {
     }
     const now = Date.now();
     const lastAt = telemetryLastSentAt[featureName] || 0;
-    if (now - lastAt < TELEMETRY_MIN_INTERVAL_MS) {
+    if (now - lastAt < PORTAL_TIMING.telemetryMinIntervalMs) {
         return;
     }
     telemetryLastSentAt[featureName] = now;
-    try {
-        chrome.runtime.sendMessage({
-            name: 'telemetry-feature-use',
-            featureName: featureName,
-            count: 1
-        }, function () {
-            if (chrome.runtime.lastError) {
-                // Ignore when background worker is temporarily unavailable.
-            }
-        });
-    }
-    catch (e) {
-        // no-op
-    }
+    AzureExtension.sendRuntimeMessage({
+        name: messages.featureUse,
+        featureName,
+        count: 1
+    }).catch((error) => {
+        console.debug('[Azure Portal Extension] Unable to report feature usage:', error);
+    });
 }
 function onPortDisconnected() {
-    port = null;
-    isEmptyResourceGroupsFetchInFlight = false;
-    if (emptyResourceGroupsFetchTimeoutId) {
-        clearTimeout(emptyResourceGroupsFetchTimeoutId);
-        emptyResourceGroupsFetchTimeoutId = null;
+    backgroundPort = null;
+    isPortalDataFetchInFlight = false;
+    if (portalDataFetchTimeoutId) {
+        clearTimeout(portalDataFetchTimeoutId);
+        portalDataFetchTimeoutId = null;
     }
 }
 function onPortMessage(response) {
-    if (response.name == "get-access-function") {
+    if (response.name === messages.subscriptionsResult) {
         if (response.subscriptions) {
             try {
-                if (port) {
-                    port.postMessage({ name: "get-empty-resourcegroups" });
+                if (backgroundPort) {
+                    backgroundPort.postMessage({ name: messages.getEmptyResourceGroups });
                     if (isAzurePortalPage() && extensionSettings.showDirectUserRbac) {
-                        isRbacFetchInFlight = true;
                         directUserRbacTree = { data: [], loading: true };
                         renderDirectUserRbacTree();
-                        port.postMessage({ name: "get-direct-user-rbac-tree" });
+                        backgroundPort.postMessage({ name: messages.getDirectUserRbac });
                     }
                 }
             }
-            catch (e) {
+            catch (error) {
+                console.warn('[Azure Portal Extension] Unable to request portal data:', error);
                 onPortDisconnected();
             }
         }
         else if (response.error) {
-            if (emptyResourceGroupsFetchTimeoutId) {
-                clearTimeout(emptyResourceGroupsFetchTimeoutId);
-                emptyResourceGroupsFetchTimeoutId = null;
+            if (portalDataFetchTimeoutId) {
+                clearTimeout(portalDataFetchTimeoutId);
+                portalDataFetchTimeoutId = null;
             }
-            console.log(response.error); // TODO: Need to update to notify users this error
-            isEmptyResourceGroupsFetchInFlight = false;
+            console.warn('[Azure Portal Extension] Unable to load portal data:', response.error);
+            directUserRbacTree = { data: [], error: response.error };
+            renderDirectUserRbacTree();
+            isPortalDataFetchInFlight = false;
         }
     }
-    else if (response.name == "get-empty-resourcegroups") {
-        if (emptyResourceGroupsFetchTimeoutId) {
-            clearTimeout(emptyResourceGroupsFetchTimeoutId);
-            emptyResourceGroupsFetchTimeoutId = null;
+    else if (response.name === messages.getEmptyResourceGroups) {
+        if (portalDataFetchTimeoutId) {
+            clearTimeout(portalDataFetchTimeoutId);
+            portalDataFetchTimeoutId = null;
         }
-        emptyResourceGroups = response.emptyResourceGroups || { data: [] };
-        chrome.storage.local.set({ [EMPTY_RG_CACHE_KEY]: emptyResourceGroups }, function () { });
-        isEmptyResourceGroupsFetchInFlight = false;
+        emptyResourceGroupCache = response.emptyResourceGroups || { data: [] };
+        AzureExtension.storageSet('local', { [storageKeys.emptyResourceGroups]: emptyResourceGroupCache })
+            .catch(logSettingsError);
+        isPortalDataFetchInFlight = false;
     }
-    else if (response.name == "get-direct-user-rbac-tree") {
+    else if (response.name === messages.getDirectUserRbac) {
         directUserRbacTree = response.rbacTree || { data: [] };
         directUserRbacTree.loading = false;
         if (response.error) {
             directUserRbacTree.error = response.error;
         }
-        isRbacFetchInFlight = false;
         renderDirectUserRbacTree();
     }
 }
-function ensurePortConnected() {
-    if (port) {
+function ensureBackgroundPortConnected() {
+    if (backgroundPort) {
         return true;
     }
     try {
-        port = chrome.runtime.connect({ name: "my-background-port" });
-        port.onMessage.addListener(onPortMessage);
-        port.onDisconnect.addListener(onPortDisconnected);
+        backgroundPort = chrome.runtime.connect({ name: AzureExtension.backgroundPortName });
+        backgroundPort.onMessage.addListener(onPortMessage);
+        backgroundPort.onDisconnect.addListener(onPortDisconnected);
         return true;
     }
-    catch (e) {
-        port = null;
+    catch (error) {
+        console.warn('[Azure Portal Extension] Unable to connect to background worker:', error);
+        backgroundPort = null;
         return false;
     }
 }
-function fetchEmptyResourceGroups() {
-    if (!IS_TOP_WINDOW || isEmptyResourceGroupsFetchInFlight) {
+function refreshPortalResourceData() {
+    if (!IS_TOP_WINDOW || isPortalDataFetchInFlight) {
         return;
     }
-    if (!ensurePortConnected()) {
+    if (!ensureBackgroundPortConnected()) {
         return;
     }
-    isEmptyResourceGroupsFetchInFlight = true;
-    if (emptyResourceGroupsFetchTimeoutId) {
-        clearTimeout(emptyResourceGroupsFetchTimeoutId);
+    isPortalDataFetchInFlight = true;
+    if (portalDataFetchTimeoutId) {
+        clearTimeout(portalDataFetchTimeoutId);
     }
-    emptyResourceGroupsFetchTimeoutId = setTimeout(() => {
-        isEmptyResourceGroupsFetchInFlight = false;
-    }, 15000);
+    portalDataFetchTimeoutId = setTimeout(() => {
+        isPortalDataFetchInFlight = false;
+        console.warn('[Azure Portal Extension] Portal data request timed out.');
+    }, PORTAL_TIMING.dataRequestTimeoutMs);
     try {
-        port.postMessage({ name: "get-subscriptions-accesstoken" });
+        backgroundPort.postMessage({ name: messages.getSubscriptions });
     }
-    catch (e) {
+    catch (error) {
+        console.warn('[Azure Portal Extension] Unable to refresh portal data:', error);
         onPortDisconnected();
     }
 }
-function applyBackgroundImage(imgUrl, opacity) {
-    var elem = selectDom(portalSelectors.startboardLayout);
-    elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity);
-    var elem = selectDom(portalSelectors.homeContainer);
-    elem.attr("style", "background-image: url('" + imgUrl + "');opacity : " + opacity);
-    if (imgUrl) {
+function getCurrentSubscriptionId() {
+    let subscriptionId = '';
+    const subscriptionScopePattern = new RegExp(`/subscriptions/(${AzureExtension.guidSource})`, 'i');
+    const candidates = [window.location.href];
+    querySelectorAllDeep('a[href], [data-subscription-id]').each((_index, element) => {
+        candidates.push(element.getAttribute('href') || element.getAttribute('data-subscription-id') || '');
+    });
+    for (const candidate of candidates) {
+        const scopedMatch = candidate.match(subscriptionScopePattern);
+        if (scopedMatch?.[1]) {
+            subscriptionId = scopedMatch[1].toLowerCase();
+            break;
+        }
+    }
+    if (!subscriptionId) {
+        for (const candidate of candidates) {
+            const match = candidate.match(GUID_PATTERN);
+            if (match?.[0]) {
+                subscriptionId = match[0].toLowerCase();
+                break;
+            }
+        }
+    }
+    return subscriptionId;
+}
+function getEffectiveBackgroundSettings() {
+    const subscriptionId = getCurrentSubscriptionId();
+    const rule = subscriptionBackgroundRules.find((candidate) => String(candidate?.subscriptionId || '').toLowerCase() === subscriptionId);
+    if (rule) {
+        return {
+            imageUrl: rule.imageUrl,
+            opacity: Number(rule.opacity)
+        };
+    }
+    return {
+        imageUrl: extensionSettings.backgroundImageUrl,
+        opacity: Number(extensionSettings.backgroundOpacity)
+    };
+}
+function applyBackgroundImage() {
+    const background = getEffectiveBackgroundSettings();
+    selectDom(`${portalSelectors.startboardLayout}, ${portalSelectors.homeContainer}`)
+        .attr('style', `background-image: url('${background.imageUrl}');opacity : ${background.opacity}`);
+    if (background.imageUrl) {
         emitFeatureUseTelemetry('background-image');
     }
 }
 class PortalPageController {
     start() {
         if (IS_TOP_WINDOW) {
-            ensurePortConnected();
-            fetchEmptyResourceGroups();
-            setInterval(fetchEmptyResourceGroups, 30000);
+            ensureBackgroundPortConnected();
+            refreshPortalResourceData();
+            setInterval(refreshPortalResourceData, PORTAL_TIMING.dataRefreshIntervalMs);
         }
         this.runUiLoop();
     }
     runUiLoop() {
-        applyBackgroundImage(extensionSettings.imgUrl, extensionSettings.opacity);
+        applyBackgroundImage();
+        updateAzureTabIcon();
         if (extensionSettings.highlightEmptyResourceGroups) {
             highlightEmptyResourceGroups();
         }
         renderDirectUserRbacTree();
-        setTimeout(() => this.runUiLoop(), 500);
+        setTimeout(() => this.runUiLoop(), PORTAL_TIMING.uiRefreshIntervalMs);
     }
 }
 new PortalPageController().start();
@@ -372,13 +412,164 @@ function isAzurePortalPage() {
         /(^|\.)reactblade-ms\.portal\.azure\.net$/i.test(host) ||
         /(^|\.)reactblade-rc\.portal\.azure\.net$/i.test(host)) && href.indexOf('/auth/login') === -1;
 }
-function escapeRbacHtml(value) {
-    return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+function restorePortalTabIcon() {
+    addedTabIcon?.remove();
+    addedTabIcon = null;
+    for (const [link, attributes] of originalTabIcons) {
+        for (const [name, value] of Object.entries(attributes)) {
+            if (value === null)
+                link.removeAttribute(name);
+            else
+                link.setAttribute(name, value);
+        }
+    }
+    originalTabIcons.clear();
+}
+function resolveTabIconUrl(value) {
+    const url = new URL(value, document.baseURI);
+    if (url.protocol !== 'https:' && url.protocol !== 'blob:' &&
+        !(url.protocol === 'data:' && url.pathname.startsWith('image/'))) {
+        throw new Error(`Unsupported tab icon URL protocol: ${url.protocol}`);
+    }
+    return url.href;
+}
+function serializeBladeSvg(source) {
+    const svg = source.cloneNode(true);
+    const definitions = document.createElementNS(SVG_NAMESPACE, 'defs');
+    const referencedIds = new Set();
+    svg.setAttribute('xmlns', SVG_NAMESPACE);
+    svg.setAttribute('width', '32');
+    svg.setAttribute('height', '32');
+    function includeReference(value) {
+        const url = new URL(value, document.baseURI);
+        const page = new URL(document.baseURI);
+        if (!url.hash || url.origin !== page.origin || url.pathname !== page.pathname || url.search !== page.search) {
+            throw new Error('External SVG sprites are not supported for Azure Tab Icon.');
+        }
+        const id = decodeURIComponent(url.hash.slice(1));
+        if (!referencedIds.has(id)) {
+            referencedIds.add(id);
+            if (!svg.querySelector(`[id="${CSS.escape(id)}"]`)) {
+                const definition = document.getElementById(id);
+                if (!definition)
+                    throw new Error(`Missing SVG icon definition: ${id}`);
+                const clone = definition.cloneNode(true);
+                definitions.appendChild(clone);
+                prepareElements(definition, clone);
+                if (!svg.hasAttribute('viewBox') && definition.hasAttribute('viewBox')) {
+                    svg.setAttribute('viewBox', definition.getAttribute('viewBox'));
+                }
+            }
+        }
+        return `#${id}`;
+    }
+    function prepareElements(original, clone) {
+        const originals = [original, ...Array.from(original.querySelectorAll('*'))];
+        const clones = [clone, ...Array.from(clone.querySelectorAll('*'))];
+        originals.forEach((element, index) => {
+            const target = clones[index];
+            if (['script', 'foreignObject', 'style'].includes(element.localName)) {
+                target.remove();
+                return;
+            }
+            for (const attribute of Array.from(target.attributes)) {
+                if (attribute.name.toLowerCase().startsWith('on'))
+                    target.removeAttribute(attribute.name);
+            }
+            const style = window.getComputedStyle(element);
+            for (const property of ['fill', 'stroke', 'color', 'fill-opacity', 'stroke-opacity', 'stroke-width']) {
+                const value = style.getPropertyValue(property);
+                if (value)
+                    target.setAttribute(property, value.replace(/url\(["']?([^)"']+)["']?\)/g, (_match, reference) => `url(${includeReference(reference)})`));
+            }
+            const href = element.getAttribute('href') || element.getAttribute('xlink:href');
+            if (href) {
+                target.removeAttribute('xlink:href');
+                target.setAttribute('href', element.localName === 'use' ? includeReference(href) : resolveTabIconUrl(href));
+            }
+            for (const name of ['clip-path', 'mask', 'filter']) {
+                const value = element.getAttribute(name);
+                if (value)
+                    target.setAttribute(name, value.replace(/url\(["']?([^)"']+)["']?\)/g, (_match, reference) => `url(${includeReference(reference)})`));
+            }
+        });
+    }
+    prepareElements(source, svg);
+    svg.prepend(definitions);
+    if (!svg.hasAttribute('viewBox')) {
+        const bounds = source.getBoundingClientRect();
+        svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
+    }
+    return `data:image/svg+xml,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+}
+function getBladeTabIcon() {
+    const icons = Array.from(document.querySelectorAll(BLADE_ICON_SELECTOR));
+    const icon = icons.reverse().find((element) => !element.closest('[hidden], [aria-hidden="true"]') &&
+        element.getClientRects().length > 0 &&
+        window.getComputedStyle(element).visibility !== 'hidden');
+    if (!icon)
+        return null;
+    const image = icon instanceof HTMLImageElement ? icon : icon.querySelector('img');
+    if (image) {
+        const src = image.currentSrc || image.getAttribute('src');
+        if (src)
+            return resolveTabIconUrl(src);
+    }
+    const svg = icon instanceof SVGSVGElement ? icon : icon.querySelector('svg');
+    if (svg)
+        return serializeBladeSvg(svg);
+    const background = window.getComputedStyle(icon).backgroundImage.match(/^url\(["']?(.*?)["']?\)$/);
+    return background ? resolveTabIconUrl(background[1]) : null;
+}
+function updateAzureTabIcon() {
+    if (!IS_TOP_WINDOW)
+        return;
+    if (!extensionSettings.azureTabIcon || !isAzurePortalPage()) {
+        restorePortalTabIcon();
+        return;
+    }
+    try {
+        const href = getBladeTabIcon();
+        if (!href || !document.head) {
+            restorePortalTabIcon();
+            return;
+        }
+        let links = Array.from(document.querySelectorAll(TAB_ICON_SELECTOR))
+            .filter((link) => link !== addedTabIcon);
+        if (links.length === 0) {
+            if (!addedTabIcon) {
+                addedTabIcon = document.createElement('link');
+                addedTabIcon.rel = 'icon';
+                document.head.appendChild(addedTabIcon);
+            }
+            links = [addedTabIcon];
+        }
+        else {
+            addedTabIcon?.remove();
+            addedTabIcon = null;
+        }
+        for (const link of links) {
+            if (link !== addedTabIcon && !originalTabIcons.has(link)) {
+                originalTabIcons.set(link, {
+                    href: link.getAttribute('href'), type: link.getAttribute('type'), sizes: link.getAttribute('sizes')
+                });
+            }
+            if (link.getAttribute('href') !== href)
+                link.setAttribute('href', href);
+            // Original type/size hints may prevent Chromium from selecting the new icon.
+            link.removeAttribute('type');
+            link.removeAttribute('sizes');
+        }
+        lastTabIconError = '';
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message !== lastTabIconError) {
+            console.warn('[Azure Portal Extension] Unable to update Azure Tab Icon:', error);
+            lastTabIconError = message;
+        }
+        restorePortalTabIcon();
+    }
 }
 function renderRbacAssignments(assignments) {
     const byPrincipal = {};
@@ -391,8 +582,8 @@ function renderRbacAssignments(assignments) {
             byPrincipal[principalName].push(assignment.roleName);
         }
     });
-    return Object.keys(byPrincipal).sort().map((principalName) => '<li><strong>' + escapeRbacHtml(principalName) + '</strong> - ' +
-        byPrincipal[principalName].sort().map(escapeRbacHtml).join(', ') + '</li>').join('');
+    return Object.keys(byPrincipal).sort().map((principalName) => '<li><strong>' + escapeHtml(principalName) + '</strong> - ' +
+        byPrincipal[principalName].sort().map(escapeHtml).join(', ') + '</li>').join('');
 }
 function renderDirectUserRbacTree() {
     if (!IS_TOP_WINDOW || !isAzurePortalPage() ||
@@ -407,55 +598,17 @@ function renderDirectUserRbacTree() {
     if (!panel) {
         panel = document.createElement('aside');
         panel.setAttribute('data-azure-extension-rbac-panel', 'true');
-        panel.style.cssText = [
-            'position:fixed',
-            'top:110px',
-            'right:20px',
-            'z-index:2147483647',
-            'width:420px',
-            'max-height:75vh',
-            'overflow:auto',
-            'background:#ffffff',
-            'color:#1f1f1f',
-            'border:1px solid #8a8886',
-            'border-radius:6px',
-            'box-shadow:0 8px 24px rgba(0,0,0,.28)',
-            'font:14px Segoe UI,Arial,sans-serif',
-            'line-height:1.45'
-        ].join(';');
         const header = document.createElement('div');
         header.setAttribute('data-azure-extension-rbac-header', 'true');
-        header.style.cssText = [
-            'display:flex',
-            'align-items:center',
-            'justify-content:space-between',
-            'gap:12px',
-            'padding:10px 12px',
-            'background:#0078d4',
-            'color:#ffffff',
-            'font-weight:600',
-            'cursor:move',
-            'user-select:none'
-        ].join(';');
         const title = document.createElement('span');
         title.textContent = 'Direct user RBAC';
         header.appendChild(title);
         const toggleButton = document.createElement('button');
         toggleButton.type = 'button';
         toggleButton.textContent = 'Hide details';
-        toggleButton.style.cssText = [
-            'border:1px solid rgba(255,255,255,.8)',
-            'border-radius:3px',
-            'padding:3px 8px',
-            'background:transparent',
-            'color:#ffffff',
-            'cursor:pointer',
-            'font:12px Segoe UI,Arial,sans-serif'
-        ].join(';');
         header.appendChild(toggleButton);
         const body = document.createElement('div');
         body.setAttribute('data-azure-extension-rbac-body', 'true');
-        body.style.padding = '16px';
         toggleButton.addEventListener('click', (event) => {
             event.stopPropagation();
             const isHidden = body.hidden;
@@ -501,30 +654,30 @@ function renderDirectUserRbacTree() {
             '<p style="font-size:12px;color:#8a6d1d">Note: If user names or role assignments are not displayed, add User.ReadBasic.All as a Microsoft Graph delegated API permission to the App registration, grant admin consent, and sign in again.</p>'
         : directUserRbacTree?.error
             ? '<p style="color:#a4262c">Unable to load direct user RBAC assignments: ' +
-                escapeRbacHtml(directUserRbacTree.error) + '</p>'
+                escapeHtml(directUserRbacTree.error) + '</p>'
             : data.length === 0
                 ? '<p>No direct user RBAC assignments were found at Subscription or Resource Group scope.</p>'
                 : data.map((subscription) => {
                     const subscriptionAssignments = renderRbacAssignments(subscription.assignments);
-                    const resourceGroups = (subscription.resourceGroups || []).map((resourceGroup) => '<li><strong>Resource Group: ' + escapeRbacHtml(resourceGroup.name) + '</strong>' +
+                    const resourceGroups = (subscription.resourceGroups || []).map((resourceGroup) => '<li><strong>Resource Group: ' + escapeHtml(resourceGroup.name) + '</strong>' +
                         '<ul>' + renderRbacAssignments(resourceGroup.assignments) + '</ul></li>').join('');
                     const children = (subscriptionAssignments
                         ? '<li><strong>Subscription scope</strong><ul>' + subscriptionAssignments + '</ul></li>'
                         : '') + resourceGroups;
-                    return '<li><strong>Subscription: ' + escapeRbacHtml(subscription.name) + '</strong>' +
+                    return '<li><strong>Subscription: ' + escapeHtml(subscription.name) + '</strong>' +
                         '<ul>' + children + '</ul>' +
                         '</li>';
                 }).join('');
     const body = panel.querySelector('[data-azure-extension-rbac-body]');
     body.innerHTML =
         '<div style="font-size:12px;color:#605e5c;margin-bottom:10px">Tenant: ' +
-            escapeRbacHtml(directUserRbacTree?.tenantId || 'current tenant') + '</div>' +
+            escapeHtml(directUserRbacTree?.tenantId || 'current tenant') + '</div>' +
             '<div style="font-size:12px;color:#605e5c;margin-bottom:10px">' +
             'Direct assignments only; inherited roles, groups, service principals, managed identities, Lighthouse, and resource-level roles are excluded.</div>' +
             '<ul style="padding-left:20px;margin:0">' + treeHtml + '</ul>' +
             (directUserRbacTree?.nameResolutionWarning
                 ? '<p style="font-size:12px;color:#a4262c;margin-bottom:0">' +
-                    escapeRbacHtml(directUserRbacTree.nameResolutionWarning) + '</p>'
+                    escapeHtml(directUserRbacTree.nameResolutionWarning) + '</p>'
                 : '');
 }
 function normalizeResourceGroupName(text) {
@@ -541,7 +694,7 @@ function canonicalizeName(text) {
         .replace(/\s+/g, '')
         .replace(/[^a-z0-9_-]/g, '');
 }
-function isLikelySameRgName(candidate, rgName) {
+function isLikelySameResourceGroupName(candidate, rgName) {
     const candidateCanonical = canonicalizeName(candidate);
     const rgCanonical = canonicalizeName(rgName);
     if (!candidateCanonical || !rgCanonical) {
@@ -552,7 +705,7 @@ function isLikelySameRgName(candidate, rgName) {
     }
     return candidateCanonical.indexOf(rgCanonical) !== -1 || rgCanonical.indexOf(candidateCanonical) !== -1;
 }
-function extractRgNameFromHref(href) {
+function extractResourceGroupNameFromHref(href) {
     if (!href) {
         return '';
     }
@@ -578,7 +731,7 @@ function normalizeEmptyResourceGroupEntry(item) {
         toLowerSafe(item && item.resourceGroupName) ||
         toLowerSafe(item && item.name) ||
         toLowerSafe(item && item.rgName);
-    const rgFromId = extractRgNameFromHref((item && item.id) || (item && item.resourceId) || '');
+    const rgFromId = extractResourceGroupNameFromHref((item && item.id) || (item && item.resourceId) || '');
     const rgName = rgFromFields || rgFromId;
     const subName = toLowerSafe(item && item.subscriptionName) ||
         toLowerSafe(item && item.subscriptionDisplayName) ||
@@ -588,8 +741,7 @@ function normalizeEmptyResourceGroupEntry(item) {
 function isResourceGroupsPage() {
     const href = (window.location && window.location.href) ? window.location.href : '';
     if (href.indexOf('/resourcegroups') !== -1 ||
-        href.indexOf('resourceType/Microsoft.Resources%2Fsubscriptions%2FresourceGroups') !== -1 ||
-        href.indexOf('view/HubsExtension/BrowseResourceGroups') !== -1) {
+        portalSelectors.resourceGroupUrls.some((route) => href.includes(route))) {
         return true;
     }
     const rgLinks = querySelectorAllDeep('a[href*="/resourceGroups/"], a.ext-hubs-browse-resource-link, ' +
@@ -599,7 +751,7 @@ function isResourceGroupsPage() {
     }
     return querySelectorAllDeep('div.ms-DetailsRow-fields, div[id^="row"]').length > 0;
 }
-function highlightElement(targetElem, rgName, highlightSuffix) {
+function highlightResourceGroupElement(targetElem, rgName, highlightSuffix) {
     if (!targetElem || targetElem.length === 0) {
         return false;
     }
@@ -613,7 +765,7 @@ function highlightElement(targetElem, rgName, highlightSuffix) {
     }
     const elem = targetElem.get(0);
     if (elem && elem.style) {
-        elem.style.setProperty('color', extensionSettings.color, 'important');
+        elem.style.setProperty('color', extensionSettings.emptyResourceGroupColor, 'important');
         elem.style.setProperty('font-weight', '700', 'important');
         elem.style.setProperty('text-decoration', 'underline', 'important');
     }
@@ -622,13 +774,13 @@ function highlightElement(targetElem, rgName, highlightSuffix) {
         const cell = parentCell.get(0);
         if (cell && cell.style) {
             cell.style.setProperty('background-color', 'rgba(255, 234, 112, 0.22)', 'important');
-            cell.style.setProperty('border-left', '3px solid ' + extensionSettings.color, 'important');
+            cell.style.setProperty('border-left', '3px solid ' + extensionSettings.emptyResourceGroupColor, 'important');
         }
     }
     targetElem.attr('data-empty-rg-highlighted', rgName);
     return !alreadyMarked || Boolean(elem?.style);
 }
-function fallbackHighlightWithoutRows(emptyRgData, highlightSuffix) {
+function highlightResourceGroupCandidates(emptyRgData, highlightSuffix) {
     const rgNameSet = {};
     emptyRgData.forEach(item => {
         rgNameSet[item.rgName] = true;
@@ -639,14 +791,14 @@ function fallbackHighlightWithoutRows(emptyRgData, highlightSuffix) {
     candidates.each((index, elem) => {
         const cellElem = selectDom(elem);
         const cellText = normalizeCellText(cellElem.text(), highlightSuffix);
-        const hrefName = extractRgNameFromHref(cellElem.attr('href'));
+        const hrefName = extractResourceGroupNameFromHref(cellElem.attr('href'));
         let matchedRgName = '';
         if (hrefName && rgNameSet[hrefName]) {
             matchedRgName = hrefName;
         }
         else {
             for (let i = 0; i < rgNames.length; i++) {
-                if (isLikelySameRgName(cellText, rgNames[i])) {
+                if (isLikelySameResourceGroupName(cellText, rgNames[i])) {
                     matchedRgName = rgNames[i];
                     break;
                 }
@@ -659,7 +811,7 @@ function fallbackHighlightWithoutRows(emptyRgData, highlightSuffix) {
         if (currentMarker === matchedRgName) {
             return;
         }
-        if (highlightElement(cellElem, matchedRgName, highlightSuffix)) {
+        if (highlightResourceGroupElement(cellElem, matchedRgName, highlightSuffix)) {
             highlightedCount++;
         }
     });
@@ -694,7 +846,7 @@ function highlightEmptyResourceGroupText(emptyRgData, highlightSuffix) {
                 return;
             }
             const target = parent.closest('a, [role="gridcell"], td') || parent;
-            if (highlightElement(selectDom(target), matched.rgName, highlightSuffix)) {
+            if (highlightResourceGroupElement(selectDom(target), matched.rgName, highlightSuffix)) {
                 highlightedCount++;
             }
         });
@@ -714,13 +866,13 @@ function highlightEmptyResourceGroups() {
         return;
     }
     // pick up top element of resource group list, and use fallback for portal DOM changes
-    let resourceArray = querySelectorAllDeep('div.fxc-gc-rows div.fxc-gc-row, div[role="row"], tr, div[id^="row"]');
-    if (resourceArray.length === 0) {
-        resourceArray = querySelectorAllDeep("div[role='row']");
+    let resourceGroupRows = querySelectorAllDeep('div.fxc-gc-rows div.fxc-gc-row, div[role="row"], tr, div[id^="row"]');
+    if (resourceGroupRows.length === 0) {
+        resourceGroupRows = querySelectorAllDeep("div[role='row']");
     }
-    const rawEmptyRgData = Array.isArray(emptyResourceGroups?.data)
-        ? emptyResourceGroups.data
-        : (Array.isArray(emptyResourceGroups) ? emptyResourceGroups : []);
+    const rawEmptyRgData = Array.isArray(emptyResourceGroupCache)
+        ? emptyResourceGroupCache
+        : emptyResourceGroupCache.data;
     const emptyRgData = rawEmptyRgData
         .map(item => normalizeEmptyResourceGroupEntry(item))
         .filter(item => item.rgName);
@@ -728,10 +880,10 @@ function highlightEmptyResourceGroups() {
     emptyRgData.forEach(item => {
         emptyRgNameSet[item.rgName] = true;
     });
-    const highlightSuffix = extensionSettings.addText || '';
+    const highlightSuffix = extensionSettings.emptyResourceGroupSuffix || '';
     if (emptyRgData.length === 0) {
         const now = Date.now();
-        if (now - lastHighlightDebugAt > 5000) {
+        if (now - lastHighlightDebugAt > PORTAL_TIMING.highlightDebugIntervalMs) {
             console.log('[Azure Portal Extension] highlight-scan skipped: empty cache data, href=', window.location.href);
             lastHighlightDebugAt = now;
         }
@@ -745,17 +897,17 @@ function highlightEmptyResourceGroups() {
     directRgLinks.each((index, elem) => {
         const linkElem = selectDom(elem);
         const rgByText = normalizeResourceGroupName(normalizeCellText(linkElem.text(), highlightSuffix));
-        const rgByHref = extractRgNameFromHref(linkElem.attr('href'));
+        const rgByHref = extractResourceGroupNameFromHref(linkElem.attr('href'));
         const rgName = rgByText || rgByHref;
         if (!rgName || !emptyRgNameSet[rgName]) {
             return;
         }
-        if (highlightElement(linkElem, rgName, highlightSuffix)) {
+        if (highlightResourceGroupElement(linkElem, rgName, highlightSuffix)) {
             highlightedCount++;
         }
     });
-    if (resourceArray.length === 0 || highlightedCount === 0) {
-        const fallbackResult = fallbackHighlightWithoutRows(emptyRgData, highlightSuffix);
+    if (resourceGroupRows.length === 0 || highlightedCount === 0) {
+        const fallbackResult = highlightResourceGroupCandidates(emptyRgData, highlightSuffix);
         highlightedCount += fallbackResult.highlightedCount;
         fallbackCandidateCount = fallbackResult.candidateCount;
         usedFallback = true;
@@ -764,14 +916,14 @@ function highlightEmptyResourceGroups() {
         highlightedCount += highlightEmptyResourceGroupText(emptyRgData, highlightSuffix);
         usedFallback = true;
     }
-    resourceArray.each((index, elem) => {
+    resourceGroupRows.each((index, elem) => {
         const rowElem = selectDom(elem);
         const rowText = rowElem.text().toLowerCase();
         if (!rowText) {
             return;
         }
         let matchedRow = null;
-        for (var i = 0; i < emptyRgData.length; i++) {
+        for (let i = 0; i < emptyRgData.length; i++) {
             if (rowText.indexOf(emptyRgData[i].rgName) !== -1 &&
                 (!emptyRgData[i].subName || rowText.indexOf(emptyRgData[i].subName) !== -1)) {
                 matchedRow = emptyRgData[i];
@@ -779,7 +931,7 @@ function highlightEmptyResourceGroups() {
             }
         }
         if (!matchedRow) {
-            for (var j = 0; j < emptyRgData.length; j++) {
+            for (let j = 0; j < emptyRgData.length; j++) {
                 if (rowText.indexOf(emptyRgData[j].rgName) !== -1) {
                     matchedRow = emptyRgData[j];
                     break;
@@ -789,7 +941,7 @@ function highlightEmptyResourceGroups() {
         if (!matchedRow) {
             return;
         }
-        let resourceGroupElem = rowElem.find('div.fxc-gc-row-content a:nth-child(2)').first();
+        let resourceGroupElem = rowElem.find(portalSelectors.resourceGroupName).first();
         if (resourceGroupElem.length === 0) {
             resourceGroupElem = rowElem.find('a').first();
         }
@@ -810,12 +962,12 @@ function highlightEmptyResourceGroups() {
         if (sameNameLink.length > 0) {
             resourceGroupElem = sameNameLink;
         }
-        if (highlightElement(resourceGroupElem, matchedRow.rgName, highlightSuffix)) {
+        if (highlightResourceGroupElement(resourceGroupElem, matchedRow.rgName, highlightSuffix)) {
             highlightedCount++;
         }
     });
     const now = Date.now();
-    if (now - lastHighlightDebugAt > 5000) {
+    if (now - lastHighlightDebugAt > PORTAL_TIMING.highlightDebugIntervalMs) {
         let sampleCandidates = [];
         if (highlightedCount === 0 && usedFallback && fallbackCandidateCount > 0) {
             const sampleElems = querySelectorAllDeep('a, [role="link"], [role="gridcell"]');
@@ -833,7 +985,7 @@ function highlightEmptyResourceGroups() {
         console.log('[Azure Portal Extension] highlight-scan', {
             href: window.location.href,
             isTopFrame: window === window.top,
-            rows: resourceArray.length,
+            rows: resourceGroupRows.length,
             emptyRgCount: emptyRgData.length,
             highlightedCount: highlightedCount,
             usedFallback: usedFallback,
@@ -888,7 +1040,7 @@ function maskSubscriptionIdentifiers() {
                 const maskedSpan = document.createElement('span');
                 maskedSpan.setAttribute(maskAttribute, 'true');
                 maskedSpan.style.display = 'inline-block';
-                maskedSpan.style.filter = 'blur(4px)';
+                maskedSpan.style.filter = MASK_STYLES.identifier;
                 maskedSpan.textContent = match[0];
                 fragment.appendChild(maskedSpan);
                 lastIndex = match.index + match[0].length;
@@ -910,7 +1062,7 @@ function maskSubscriptionIdentifiers() {
     querySelectorAllDeep('input, textarea').each(function () {
         const elem = this;
         if (!elem.hasAttribute(maskAttribute) && subscriptionIdPattern.test(elem.value || '')) {
-            selectDom(elem).attr(maskAttribute, 'true').css('filter', 'blur(4px)');
+            selectDom(elem).attr(maskAttribute, 'true').css('filter', MASK_STYLES.identifier);
             maskedCount++;
         }
         subscriptionIdPattern.lastIndex = 0;
@@ -921,22 +1073,22 @@ function maskSubscriptionIdentifiers() {
 }
 function applyPrivacyMasksLoop() {
     if (!settingsLoaded) {
-        setTimeout(() => applyPrivacyMasksLoop(), 300);
+        setTimeout(() => applyPrivacyMasksLoop(), PORTAL_TIMING.settingsRetryIntervalMs);
         return;
     }
-    const usernameElem = selectDom(portalSelectors.username);
+    const accountNameElement = selectDom(portalSelectors.accountName);
     const tenantElem = selectDom(portalSelectors.tenantName);
     if (extensionSettings.maskAccountName == true) {
-        selectDom(usernameElem).css('filter', 'blur(2px)');
-        if (usernameElem.length > 0) {
+        accountNameElement.css('filter', MASK_STYLES.header);
+        if (accountNameElement.length > 0) {
             emitFeatureUseTelemetry('mask-username');
         }
     }
     else {
-        selectDom(usernameElem).css('filter', '');
+        accountNameElement.css('filter', '');
     }
     if (extensionSettings.maskTenantName == true) {
-        selectDom(tenantElem).css('filter', 'blur(2px)');
+        selectDom(tenantElem).css('filter', MASK_STYLES.header);
         if (tenantElem.length > 0) {
             emitFeatureUseTelemetry('mask-tenant');
         }
@@ -945,6 +1097,8 @@ function applyPrivacyMasksLoop() {
         selectDom(tenantElem).css('filter', '');
     }
     maskSubscriptionIdentifiers();
-    setTimeout(() => applyPrivacyMasksLoop(), 2000);
+    setTimeout(() => applyPrivacyMasksLoop(), PORTAL_TIMING.privacyRefreshIntervalMs);
 }
 applyPrivacyMasksLoop();
+
+})();

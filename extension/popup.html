@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>Azure Portal Extension Configuration Wizard</title>
     <link rel="stylesheet" href="css/popup.css" type="text/css">
+    <script src="shared.js"></script>
     <script src="popup.js"></script>
   </head>
   <body>
@@ -20,15 +21,15 @@
         <section class="settings-card">
           <h2>Background Image</h2>
           <div class="field-group">
-            <label for="imgurl">Image URL</label>
-            <input id="imgurl" type="text" placeholder="https://xxxxxxxxxxxx.blob.core.windows.net/img/mypicture.jpg" />
+            <label for="backgroundImageUrl">Image URL</label>
+            <input id="backgroundImageUrl" type="text" placeholder="https://xxxxxxxxxxxx.blob.core.windows.net/img/mypicture.jpg" />
           </div>
           <div class="field-group">
             <div class="field-inline">
-              <label for="opacity">Image Opacity</label>
-              <span class="value-pill"><span id="slider_val"></span></span>
+              <label for="backgroundOpacity">Image Opacity</label>
+              <span class="value-pill"><span id="backgroundOpacityValue"></span></span>
             </div>
-            <input id="opacity" type="range" min="0" max="1" step="0.1" />
+            <input id="backgroundOpacity" type="range" min="0" max="1" step="0.1" />
           </div>
         </section>
 
@@ -66,6 +67,20 @@
           </div>
         </section>
 
+        <section class="settings-card">
+          <h2>Azure Tab Icon</h2>
+          <div class="field-row toggle-row">
+            <div class="field-copy">
+              <label for="azureTabIcon">Use the current Azure service icon</label>
+              <p>Match the tab icon to the open portal blade. No extension sign-in required.</p>
+            </div>
+            <div class="field-control">
+              <input id="azureTabIcon" type="checkbox" />
+              <label class="check" for="azureTabIcon"><div></div></label>
+            </div>
+          </div>
+        </section>
+
         <h3 class="group-heading" style="margin:4px 2px -2px;font-size:14px;color:#145d95;">Requires sign-in features</h3>
 
         <section class="settings-card auth-card">
@@ -84,8 +99,8 @@
             <input id="clientId" type="text" placeholder="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy" />
           </div>
           <div class="button-row">
-            <input id="signin_button" type="button" value="Sign in">
-            <input id="signout_button" type="button" value="Sign out">
+            <input id="signInButton" type="button" value="Sign in">
+            <input id="signOutButton" type="button" value="Sign out">
           </div>
           <div id="authStatus"></div>
         </section>
@@ -94,21 +109,21 @@
           <h2>Empty Resource Groups</h2>
           <div class="field-row toggle-row">
             <div class="field-copy">
-              <label for="isHighlightEmptyRG">Highlight empty resource groups</label>
+              <label for="highlightEmptyResourceGroups">Highlight empty resource groups</label>
               <p>Add visual cues to quickly clean up unused groups.</p>
             </div>
             <div class="field-control">
-              <input id="isHighlightEmptyRG" type="checkbox" />
-              <label class="check" for="isHighlightEmptyRG"><div></div></label>
+              <input id="highlightEmptyResourceGroups" type="checkbox" />
+              <label class="check" for="highlightEmptyResourceGroups"><div></div></label>
             </div>
           </div>
           <div class="field-group">
-            <label for="addText">Text to append</label>
-            <input id="addText" type="text" />
+            <label for="emptyResourceGroupSuffix">Text to append</label>
+            <input id="emptyResourceGroupSuffix" type="text" />
           </div>
           <div class="field-group">
-            <label for="color">Highlight color</label>
-            <input id="color" type="color" />
+            <label for="emptyResourceGroupColor">Highlight color</label>
+            <input id="emptyResourceGroupColor" type="color" />
           </div>
         </section>
 
@@ -154,7 +169,7 @@
       </main>
 
       <footer class="app-footer">
-        <input id="save_button" type="button" value="Save settings">
+        <input id="saveSettingsButton" type="button" value="Save settings">
         <p class="save-hint">After saving, refresh your Azure portal tab with F5 to apply changes.</p>
       </footer>
     </div>

@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 This changelog was reconstructed from repository commit history.
 
+## [6.0.0] - 2026-11-14
+
+- Added:
+  - Azure Tab Icon follows the visible Azure Portal blade icon without extension sign-in or additional permissions.
+  - Onboarding explains Azure Tab Icon as a new v6.0.0 feature and highlights its default-ON behavior.
+- Changed:
+  - Azure Tab Icon is enabled by default; previously saved preferences are preserved.
+  - The subscription background management button is not exposed in the popup while the feature remains unpublished.
+  - Centralized settings, compatibility mappings, and Chrome API helpers while preserving existing settings.
+  - Consolidated runtime files under `extension/` and documentation assets under `docs/`, with matching build and release packaging paths.
+- Notes:
+  - The original tab icon is restored when the feature is disabled or no supported blade icon is available.
+  - External SVG sprites are not supported.
+  - Authentication and opt-in telemetry behavior are unchanged.
+
 ## [0.5.0] - 2026-08-02
 
 - Added:

@@ -1,28 +1,20 @@
 'use strict';
 
-interface StoredSettings {
-	imgUrl: string;
-	opacity: string | number;
-	maskAccountName: boolean;
-	maskTenantName: boolean;
-	maskSubscriptionIds: boolean;
-	highlightEmptyResourceGroups: boolean;
-	showDirectUserRbac: boolean;
-	addText: string;
-	color: string;
-}
+import type { PortalSettings } from './shared.js';
 
-const DEFAULT_SETTINGS: StoredSettings = {
-	imgUrl: '',
-	opacity: 0.8,
-	maskAccountName: false,
-	maskTenantName: false,
-	maskSubscriptionIds: false,
-	highlightEmptyResourceGroups: false,
-	showDirectUserRbac: false,
-	addText: ' - @@empty@@',
-	color: '#ffff00'
-};
+const { messages, sendRuntimeMessage, readPortalSettings, serializePortalSettings, storageGet, storageSet } = AzureExtension;
+const STATUS_COLORS = { neutral: '#333', success: '#0b6a0b', error: 'red' } as const;
+
+interface RuntimeResponse {
+	ok: boolean;
+	error?: string;
+	signedIn?: boolean;
+	expiresAt?: number;
+	config?: { tenantId: string; clientId: string };
+	telemetrySettings?: { enabled: boolean };
+	reason?: string;
+	uploadedCount?: number;
+}
 
 function byId<T extends HTMLElement>(id: string): T {
 	const element = document.getElementById(id);
@@ -32,19 +24,15 @@ function byId<T extends HTMLElement>(id: string): T {
 	return element as T;
 }
 
-function sendRuntimeMessage<T = any>(message: object): Promise<T> {
-	return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve));
-}
-
-function setStatus(id: string, text: string, color = '#333'): void {
+function setStatus(id: string, text: string, color: string = STATUS_COLORS.neutral): void {
 	const element = byId<HTMLElement>(id);
 	element.textContent = text;
 	element.style.color = color;
 }
 
-function updateAuthStatusText(result: any): void {
+function updateAuthStatusText(result: RuntimeResponse): void {
 	if (!result?.ok) {
-		setStatus('authStatus', result?.error || 'Failed to get authentication status.', 'red');
+		setStatus('authStatus', result?.error || 'Failed to get authentication status.', STATUS_COLORS.error);
 		return;
 	}
 	if (!result.signedIn) {
@@ -52,33 +40,35 @@ function updateAuthStatusText(result: any): void {
 		return;
 	}
 	const expiresDate = new Date(result.expiresAt);
-	setStatus('authStatus', `Signed in (expires: ${expiresDate.toLocaleString()})`, '#0b6a0b');
+	setStatus('authStatus', `Signed in (expires: ${expiresDate.toLocaleString()})`, STATUS_COLORS.success);
 }
 
 async function loadOAuthConfig(): Promise<void> {
-	const response: any = await sendRuntimeMessage({ name: 'oauth-config-get' });
+	const response = await sendRuntimeMessage<RuntimeResponse>({ name: messages.getOAuthConfig });
 	if (response?.ok) {
-		byId<HTMLInputElement>('tenantId').value = response.config.tenantId || 'organizations';
+		byId<HTMLInputElement>('tenantId').value = response.config.tenantId || AzureExtension.defaultTenant;
 		byId<HTMLInputElement>('clientId').value = response.config.clientId || '';
+	} else {
+		throw new Error(response?.error || 'Failed to load OAuth settings.');
 	}
 }
 
-async function saveOAuthConfig(): Promise<any> {
+async function saveOAuthConfig(): Promise<RuntimeResponse> {
 	return sendRuntimeMessage({
-		name: 'oauth-config-set',
-		tenantId: byId<HTMLInputElement>('tenantId').value.trim() || 'organizations',
+		name: messages.setOAuthConfig,
+		tenantId: byId<HTMLInputElement>('tenantId').value.trim() || AzureExtension.defaultTenant,
 		clientId: byId<HTMLInputElement>('clientId').value.trim()
 	});
 }
 
 async function refreshAuthStatus(): Promise<void> {
-	updateAuthStatusText(await sendRuntimeMessage({ name: 'auth-status' }));
+	updateAuthStatusText(await sendRuntimeMessage<RuntimeResponse>({ name: messages.authStatus }));
 }
 
 async function loadTelemetrySettings(): Promise<void> {
-	const response: any = await sendRuntimeMessage({ name: 'telemetry-settings-get' });
+	const response = await sendRuntimeMessage<RuntimeResponse>({ name: messages.getTelemetrySettings });
 	if (!response?.ok) {
-		setStatus('telemetryStatus', response?.error || 'Failed to load telemetry settings.', 'red');
+		setStatus('telemetryStatus', response?.error || 'Failed to load telemetry settings.', STATUS_COLORS.error);
 		return;
 	}
 	const enabled = Boolean(response.telemetrySettings?.enabled);
@@ -88,25 +78,32 @@ async function loadTelemetrySettings(): Promise<void> {
 
 async function saveTelemetrySettings(): Promise<{ ok: boolean }> {
 	const enabled = byId<HTMLInputElement>('telemetryOptIn').checked;
-	const response: any = await sendRuntimeMessage({
-		name: 'telemetry-settings-set',
+	const response = await sendRuntimeMessage<RuntimeResponse>({
+		name: messages.setTelemetrySettings,
 		telemetrySettings: { enabled }
 	});
 	if (!response?.ok) {
-		setStatus('telemetryStatus', response?.error || 'Failed to save telemetry settings.', 'red');
+		setStatus('telemetryStatus', response?.error || 'Failed to save telemetry settings.', STATUS_COLORS.error);
 		return { ok: false };
 	}
-	setStatus('telemetryStatus', enabled ? 'Telemetry enabled.' : 'Telemetry disabled.', '#0b6a0b');
+	setStatus('telemetryStatus', enabled ? 'Telemetry enabled.' : 'Telemetry disabled.', STATUS_COLORS.success);
 	return { ok: true };
 }
 
-function getSelfManagementInfo(): Promise<any> {
+function getSelfManagementInfo(): Promise<chrome.management.ExtensionInfo | null> {
 	return new Promise((resolve) => {
 		if (!chrome.management?.getSelf) {
 			resolve(null);
 			return;
 		}
-		chrome.management.getSelf((info) => resolve(chrome.runtime.lastError ? null : info || null));
+		chrome.management.getSelf((info) => {
+			if (chrome.runtime.lastError) {
+				console.debug('[Azure Portal Extension] Unable to detect development installation:', chrome.runtime.lastError.message);
+				resolve(null);
+			} else {
+				resolve(info || null);
+			}
+		});
 	});
 }
 
@@ -119,86 +116,63 @@ async function configureDevTelemetryTools(): Promise<void> {
 	}
 	tools.hidden = false;
 	const button = byId<HTMLInputElement>('sendTelemetryNowButton');
-	button.addEventListener('click', async () => {
+	registerPopupAction('sendTelemetryNowButton', async () => {
 		setStatus('telemetryDevStatus', 'Sending buffered telemetry...');
 		button.disabled = true;
-		const result: any = await sendRuntimeMessage({ name: 'telemetry-send-now' });
-		if (!result?.ok) {
-			setStatus('telemetryDevStatus',
-				result?.reason === 'disabled'
-					? 'Telemetry is disabled. Enable it and save before sending.'
-					: (result?.error || 'Failed to send telemetry.'), 'red');
-		} else {
-			setStatus('telemetryDevStatus',
-				result.uploadedCount > 0
-					? `Sent ${result.uploadedCount} buffered telemetry event(s).`
-					: 'Telemetry buffer is empty. Nothing was sent.');
+		try {
+			const result = await sendRuntimeMessage<RuntimeResponse>({ name: messages.sendTelemetry });
+			if (!result?.ok) {
+				setStatus('telemetryDevStatus',
+					result?.reason === 'disabled'
+						? 'Telemetry is disabled. Enable it and save before sending.'
+						: (result?.error || 'Failed to send telemetry.'), STATUS_COLORS.error);
+			} else {
+				setStatus('telemetryDevStatus',
+					result.uploadedCount > 0
+						? `Sent ${result.uploadedCount} buffered telemetry event(s).`
+						: 'Telemetry buffer is empty. Nothing was sent.');
+			}
+		} finally {
+			button.disabled = false;
 		}
-		button.disabled = false;
-	});
+	}, 'telemetryDevStatus');
 }
 
 function saveSettings(): Promise<void> {
-	const settings: StoredSettings = {
-		imgUrl: byId<HTMLInputElement>('imgurl').value,
-		opacity: byId<HTMLInputElement>('opacity').value,
+	const settings: PortalSettings = {
+		backgroundImageUrl: byId<HTMLInputElement>('backgroundImageUrl').value,
+		backgroundOpacity: byId<HTMLInputElement>('backgroundOpacity').value,
 		maskAccountName: byId<HTMLInputElement>('maskAccountName').checked,
 		maskTenantName: byId<HTMLInputElement>('maskTenantName').checked,
 		maskSubscriptionIds: byId<HTMLInputElement>('maskSubscriptionIds').checked,
-		highlightEmptyResourceGroups: byId<HTMLInputElement>('isHighlightEmptyRG').checked,
+		azureTabIcon: byId<HTMLInputElement>('azureTabIcon').checked,
+		highlightEmptyResourceGroups: byId<HTMLInputElement>('highlightEmptyResourceGroups').checked,
 		showDirectUserRbac: byId<HTMLInputElement>('showDirectUserRbac').checked,
-		addText: byId<HTMLInputElement>('addText').value,
-		color: byId<HTMLInputElement>('color').value
+		emptyResourceGroupSuffix: byId<HTMLInputElement>('emptyResourceGroupSuffix').value,
+		emptyResourceGroupColor: byId<HTMLInputElement>('emptyResourceGroupColor').value
 	};
-	return new Promise((resolve, reject) => chrome.storage.sync.set({
-		imgUrl: settings.imgUrl,
-		opacity: settings.opacity,
-		maskAccountName: settings.maskAccountName,
-		maskTenantName: settings.maskTenantName,
-		maskSubscriptionIds: settings.maskSubscriptionIds,
-		highlightEmptyResourceGroups: settings.highlightEmptyResourceGroups,
-		showDirectUserRbac: settings.showDirectUserRbac,
-		isUsernameBluer: settings.maskAccountName,
-		isAADTenantBluer: settings.maskTenantName,
-		isSubscriptionIdBluer: settings.maskSubscriptionIds,
-		isHighlightEmptyRG: settings.highlightEmptyResourceGroups,
-		isShowDirectUserRbac: settings.showDirectUserRbac,
-		addText: settings.addText,
-		color: settings.color
-	}, () => {
-		if (chrome.runtime.lastError) {
-			reject(new Error(chrome.runtime.lastError.message));
-			return;
-		}
-		resolve();
-	}));
+	return storageSet('sync', serializePortalSettings(settings));
 }
 
-function loadStoredSettings(): void {
-	chrome.storage.sync.get(null, (items: any) => {
-		byId<HTMLInputElement>('imgurl').value = String(items.imgUrl || '');
-		byId<HTMLInputElement>('opacity').value = String(items.opacity);
-		byId<HTMLElement>('slider_val').textContent = String(items.opacity);
-		byId<HTMLInputElement>('maskAccountName').checked =
-			items.maskAccountName ?? items.isUsernameBluer ?? false;
-		byId<HTMLInputElement>('maskTenantName').checked =
-			items.maskTenantName ?? items.isAADTenantBluer ?? false;
-		byId<HTMLInputElement>('maskSubscriptionIds').checked =
-			items.maskSubscriptionIds ?? items.isSubscriptionIdBluer ?? false;
-		byId<HTMLInputElement>('color').value = items.color;
-		byId<HTMLInputElement>('addText').value = items.addText;
-		byId<HTMLInputElement>('isHighlightEmptyRG').checked =
-			items.highlightEmptyResourceGroups ?? items.isHighlightEmptyRG ?? false;
-		byId<HTMLInputElement>('showDirectUserRbac').checked =
-			items.showDirectUserRbac ?? items.isShowDirectUserRbac ?? false;
-		updateEmptyResourceGroupControls();
-	});
+async function loadStoredSettings(): Promise<void> {
+	const settings = readPortalSettings(await storageGet('sync', null));
+	for (const key of Object.keys(settings) as (keyof PortalSettings)[]) {
+		const input = byId<HTMLInputElement>(key);
+		const value = settings[key];
+		if (typeof value === 'boolean') {
+			input.checked = value;
+		} else {
+			input.value = String(value);
+		}
+	}
+	byId<HTMLElement>('backgroundOpacityValue').textContent = String(settings.backgroundOpacity);
+	updateEmptyResourceGroupControls();
 }
 
 function updateEmptyResourceGroupControls(): void {
-	const disabled = !byId<HTMLInputElement>('isHighlightEmptyRG').checked;
-	byId<HTMLInputElement>('color').disabled = disabled;
-	byId<HTMLInputElement>('addText').disabled = disabled;
+	const disabled = !byId<HTMLInputElement>('highlightEmptyResourceGroups').checked;
+	byId<HTMLInputElement>('emptyResourceGroupColor').disabled = disabled;
+	byId<HTMLInputElement>('emptyResourceGroupSuffix').disabled = disabled;
 }
 
 class PopupSettingsController {
@@ -206,29 +180,31 @@ class PopupSettingsController {
 		byId<HTMLInputElement>('redirectUri').value = chrome.identity.getRedirectURL();
 		byId<HTMLInputElement>('redirectUri').readOnly = true;
 		byId<HTMLInputElement>('redirectUri').disabled = true;
+		const optionsButton = document.getElementById('manageSubscriptionBackgrounds');
+		optionsButton?.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
-		byId<HTMLInputElement>('save_button').addEventListener('click', async () => {
+		registerPopupAction('saveSettingsButton', async () => {
 			try {
 				await saveSettings();
 			} catch (error) {
-				setStatus('authStatus', `Failed to save settings: ${error instanceof Error ? error.message : String(error)}`, 'red');
+				setStatus('authStatus', `Failed to save settings: ${error instanceof Error ? error.message : String(error)}`, STATUS_COLORS.error);
 				return;
 			}
 			const saved = await saveOAuthConfig();
 			if (!saved?.ok) {
-				setStatus('authStatus', saved?.error || 'Failed to save OAuth settings.', 'red');
+				setStatus('authStatus', saved?.error || 'Failed to save OAuth settings.', STATUS_COLORS.error);
 			}
 			await saveTelemetrySettings();
 		});
-		loadStoredSettings();
-		loadOAuthConfig().then(refreshAuthStatus);
-		loadTelemetrySettings();
-		configureDevTelemetryTools();
+		loadStoredSettings().catch(showPopupError);
+		loadOAuthConfig().then(refreshAuthStatus).catch(showPopupError);
+		loadTelemetrySettings().catch(showPopupError);
+		configureDevTelemetryTools().catch(showPopupError);
 
-		byId<HTMLInputElement>('isHighlightEmptyRG')
+		byId<HTMLInputElement>('highlightEmptyResourceGroups')
 			.addEventListener('change', updateEmptyResourceGroupControls);
-		byId<HTMLInputElement>('opacity').addEventListener('input', () => {
-			byId<HTMLElement>('slider_val').textContent = byId<HTMLInputElement>('opacity').value;
+		byId<HTMLInputElement>('backgroundOpacity').addEventListener('input', () => {
+			byId<HTMLElement>('backgroundOpacityValue').textContent = byId<HTMLInputElement>('backgroundOpacity').value;
 		});
 		byId<HTMLInputElement>('telemetryOptIn').addEventListener('change', () => {
 			setStatus('telemetryStatus',
@@ -236,33 +212,45 @@ class PopupSettingsController {
 					? 'Telemetry will be enabled on save.'
 					: 'Telemetry is disabled.');
 		});
-		byId<HTMLInputElement>('signin_button').addEventListener('click', async () => {
+		registerPopupAction('signInButton', async () => {
 			if (!byId<HTMLInputElement>('clientId').value.trim()) {
-				setStatus('authStatus', 'Please enter Client ID.', 'red');
+				setStatus('authStatus', 'Please enter Client ID.', STATUS_COLORS.error);
 				return;
 			}
 			const saved = await saveOAuthConfig();
 			if (!saved?.ok) {
-				setStatus('authStatus', saved?.error || 'Failed to save OAuth settings.', 'red');
+				setStatus('authStatus', saved?.error || 'Failed to save OAuth settings.', STATUS_COLORS.error);
 				return;
 			}
 			setStatus('authStatus', 'Signing in...');
-			const result: any = await sendRuntimeMessage({ name: 'auth-login' });
+			const result = await sendRuntimeMessage<RuntimeResponse>({ name: messages.signIn });
 			if (!result?.ok) {
-				setStatus('authStatus', result?.error || 'Sign-in failed.', 'red');
+				setStatus('authStatus', result?.error || 'Sign-in failed.', STATUS_COLORS.error);
 				return;
 			}
 			await refreshAuthStatus();
 		});
-		byId<HTMLInputElement>('signout_button').addEventListener('click', async () => {
-			const result: any = await sendRuntimeMessage({ name: 'auth-logout' });
+		registerPopupAction('signOutButton', async () => {
+			const result = await sendRuntimeMessage<RuntimeResponse>({ name: messages.signOut });
 			if (!result?.ok) {
-				setStatus('authStatus', result?.error || 'Sign-out failed.', 'red');
+				setStatus('authStatus', result?.error || 'Sign-out failed.', STATUS_COLORS.error);
 				return;
 			}
 			await refreshAuthStatus();
 		});
 	}
+}
+
+function showPopupError(error: unknown): void {
+	setStatus('authStatus', error instanceof Error ? error.message : String(error), STATUS_COLORS.error);
+}
+
+function registerPopupAction(id: string, action: () => Promise<void>, statusId = 'authStatus'): void {
+	byId<HTMLElement>(id).addEventListener('click', () => {
+		action().catch((error: unknown) => {
+			setStatus(statusId, error instanceof Error ? error.message : String(error), STATUS_COLORS.error);
+		});
+	});
 }
 
 document.addEventListener('DOMContentLoaded', () => {

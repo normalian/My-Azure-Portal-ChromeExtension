@@ -29,6 +29,7 @@ import tempfile
 import zipfile
 
 root = pathlib.Path(sys.argv[1])
+extension = root / 'extension'
 secrets_file = pathlib.Path(sys.argv[2])
 output_dir = pathlib.Path(sys.argv[3])
 placeholder = sys.argv[4]
@@ -43,15 +44,15 @@ connection_string = str(secrets.get('appInsightsConnectionString', '')).strip()
 if not connection_string:
     raise SystemExit('secrets.local.json must contain appInsightsConnectionString.')
 
-manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
+manifest = json.loads((extension / 'manifest.json').read_text(encoding='utf-8'))
 version = str(manifest.get('version', '0.0.0')).strip() or '0.0.0'
 zip_name = f'my-azure-portal-extension-v{version}.zip'
 
 staging = pathlib.Path(tempfile.mkdtemp(prefix='my-azure-portal-extension-'))
 
-def copy_text(src_rel: str, dest_rel=None) -> None:
+def copy_text(src_rel: str, dest_rel=None, source_root=extension) -> None:
     dest_rel = dest_rel or src_rel
-    src = root / src_rel
+    src = source_root / src_rel
     dest = staging / dest_rel
     dest.parent.mkdir(parents=True, exist_ok=True)
     text = src.read_text(encoding='utf-8')
@@ -60,35 +61,36 @@ def copy_text(src_rel: str, dest_rel=None) -> None:
     dest.write_text(text, encoding='utf-8')
 
 def copy_tree(src_rel: str) -> None:
-    src_dir = root / src_rel
+    src_dir = extension / src_rel
     if not src_dir.exists():
-        return
+        raise SystemExit(f'Missing extension assets: {src_dir}.')
 
     for path in src_dir.rglob('*'):
         if path.is_file():
-            dest = staging / path.relative_to(root)
+            dest = staging / path.relative_to(extension)
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, dest)
 
 for relative_path in [
     'background.js',
+    'shared.js',
     'manifest.json',
     'popup.html',
     'popup.js',
+    'options.html',
+    'options.js',
     'onboarding.html',
     'onboarding.js',
     'script.js',
-    'LICENSE',
 ]:
     copy_text(relative_path)
 
-for markdown_file in root.glob('*.md'):
-    if markdown_file.name in {'secrets.local.json'}:
-        continue
-    copy_text(markdown_file.name)
+for document in ['LICENSE', 'README.md', 'CHANGELOG.md', 'PRIVACY_POLICY.md', 'secrets.local.example.json']:
+    copy_text(document, source_root=root)
 
 copy_tree('css')
 copy_tree('img')
+shutil.copytree(root / 'docs', staging / 'docs')
 
 zip_path = output_dir / zip_name
 with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:

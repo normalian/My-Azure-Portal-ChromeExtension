@@ -1,0 +1,43 @@
+[data-azure-extension-rbac-panel] {
+	position: fixed;
+	top: 110px;
+	right: 20px;
+	z-index: 2147483647;
+	width: 420px;
+	max-height: 75vh;
+	overflow: auto;
+	background: #ffffff;
+	color: #1f1f1f;
+	border: 1px solid #8a8886;
+	border-radius: 6px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+	font: 14px Segoe UI, Arial, sans-serif;
+	line-height: 1.45;
+}
+
+[data-azure-extension-rbac-header] {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 10px 12px;
+	background: #0078d4;
+	color: #ffffff;
+	font-weight: 600;
+	cursor: move;
+	user-select: none;
+}
+
+[data-azure-extension-rbac-header] button {
+	border: 1px solid rgba(255, 255, 255, .8);
+	border-radius: 3px;
+	padding: 3px 8px;
+	background: transparent;
+	color: #ffffff;
+	cursor: pointer;
+	font: 12px Segoe UI, Arial, sans-serif;
+}
+
+[data-azure-extension-rbac-body] {
+	padding: 16px;
+}

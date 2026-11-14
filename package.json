@@ -1,12 +1,13 @@
 {
   "name": "my-azure-portal-chromeextension",
-  "version": "0.5.0",
+  "version": "6.0.0",
   "private": true,
   "description": "My Azure Portal Extension\r ============================",
-  "main": "background.js",
+  "main": "extension/background.js",
   "scripts": {
     "build": "tsc && node scripts/copy-build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-vm-modules --test tests/*.test.mjs"
   },
   "repository": {
     "type": "git",

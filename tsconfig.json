@@ -12,7 +12,7 @@
     "strict": false,
     "noImplicitAny": false,
     "useUnknownInCatchVariables": false,
-    "noCheck": true,
+    "noCheck": false,
     "sourceMap": false,
     "declaration": false
   },
@@ -20,6 +20,8 @@
     "src/background.ts",
     "src/content-script.ts",
     "src/popup.ts",
-    "src/onboarding.ts"
+    "src/onboarding.ts",
+    "src/options.ts",
+    "src/shared.ts"
   ]
 }

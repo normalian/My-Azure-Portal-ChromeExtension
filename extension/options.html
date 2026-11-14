@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subscription Background Rules</title>
+    <style>
+      :root {
+        --bg: #eff7ff;
+        --card: #ffffff;
+        --line: #c7ddef;
+        --text: #102a43;
+        --muted: #516679;
+        --accent: #0b78d1;
+        --danger: #a4262c;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        color: var(--text);
+        background: linear-gradient(150deg, var(--bg), #ffffff);
+        font: 14px "Segoe UI", Arial, sans-serif;
+      }
+      main { max-width: 1100px; margin: 0 auto; }
+      h1 { margin: 0 0 6px; font-size: 26px; }
+      h2 { margin: 0 0 12px; font-size: 18px; }
+      .intro { margin: 0 0 22px; color: var(--muted); }
+      .card {
+        margin-bottom: 16px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+        box-shadow: 0 4px 16px rgba(16, 42, 67, .07);
+      }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 9px 8px; border-bottom: 1px solid #e5eef7; text-align: left; vertical-align: middle; }
+      th { color: var(--muted); font-size: 12px; }
+      td.url { max-width: 330px; overflow-wrap: anywhere; }
+      .empty { padding: 14px 8px; color: var(--muted); }
+      .form-grid { display: grid; grid-template-columns: 1fr 1.2fr 1.5fr 130px; gap: 8px; align-items: end; }
+      label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+      input, textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 8px;
+        color: var(--text);
+        background: #fff;
+        font: inherit;
+      }
+      textarea { min-height: 150px; resize: vertical; font: 12px Consolas, monospace; }
+      button {
+        border: 1px solid #b8d2e9;
+        border-radius: 7px;
+        padding: 8px 12px;
+        color: #18466b;
+        background: #fff;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button.primary { border-color: var(--accent); color: #fff; background: var(--accent); }
+      button.danger { border-color: #efc3b6; color: #7c2d12; background: #fff7f5; }
+      .actions { display: flex; gap: 8px; margin-top: 12px; }
+      .status { min-height: 18px; margin-top: 8px; color: var(--muted); }
+      .error { color: var(--danger); }
+      .hint { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+      @media (max-width: 760px) {
+        body { padding: 12px; }
+        .form-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Subscription Background Rules</h1>
+      <p class="intro">Use a different Azure Portal background image for selected subscriptions. Global background settings remain the fallback.</p>
+
+      <section class="card">
+        <h2>Rules</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Label</th><th>Subscription ID</th><th>Image URL</th><th>Opacity</th><th></th></tr>
+            </thead>
+            <tbody id="rulesBody"></tbody>
+          </table>
+        </div>
+        <button id="addRuleButton" class="primary" type="button">Add rule</button>
+        <form id="ruleForm" hidden>
+          <div class="form-grid">
+            <div><label for="ruleLabel">Label</label><input id="ruleLabel" required></div>
+            <div><label for="ruleSubscriptionId">Subscription ID</label><input id="ruleSubscriptionId" required></div>
+            <div><label for="ruleImageUrl">Image URL</label><input id="ruleImageUrl" type="url" required></div>
+            <div><label for="ruleOpacity">Opacity (0-100)</label><input id="ruleOpacity" type="number" min="0" max="100" step="1" value="80" required></div>
+          </div>
+          <div class="actions"><button class="primary" type="submit">Add rule</button><button id="cancelRuleButton" type="button">Cancel</button></div>
+          <div id="ruleStatus" class="status"></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Export rules</h2>
+        <p class="hint">Copy this JSON and share it with your team.</p>
+        <textarea id="exportJson" readonly></textarea>
+        <div class="actions"><button id="copyJsonButton" type="button">Copy JSON</button></div>
+        <div id="exportStatus" class="status"></div>
+      </section>
+
+      <section class="card">
+        <h2>Import rules</h2>
+        <p class="hint">Paste a rules array as JSON. Applying it replaces your current rules; it does not merge them.</p>
+        <textarea id="importJson" placeholder="Paste JSON here"></textarea>
+        <div class="actions"><button id="applyRulesButton" class="primary" type="button">Apply rules</button></div>
+        <div id="importStatus" class="status"></div>
+      </section>
+    </main>
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

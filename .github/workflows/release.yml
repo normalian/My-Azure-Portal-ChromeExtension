@@ -23,11 +23,14 @@ jobs:
       - name: Build TypeScript sources
         run: npm run build
 
+      - name: Run regression tests
+        run: npm test
+
       - name: Resolve release tag
         id: release
         shell: bash
         run: |
-          version="$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")"
+          version="$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])")"
           tag="v${version}"
 
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${tag}" ]]; then

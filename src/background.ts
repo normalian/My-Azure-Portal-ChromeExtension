@@ -1,16 +1,43 @@
 'use strict';
 
-const subscriptionIds = [];
-let subscriptions = [];
-const ARM_SCOPE = 'https://management.azure.com/user_impersonation';
+import './shared.js';
+
+const { messages, storageGet, storageSet, storageRemove } = AzureExtension;
+const AZURE_ENDPOINTS = {
+	arm: 'https://management.azure.com',
+	graph: 'https://graph.microsoft.com/v1.0',
+	authority: 'https://login.microsoftonline.com'
+} as const;
+const API_VERSIONS = {
+	subscriptions: '2022-12-01',
+	resourceGroups: '2021-04-01',
+	authorization: '2022-04-01',
+	resourceGraph: '2021-03-01'
+} as const;
+const ARM_SCOPE = `${AZURE_ENDPOINTS.arm}/user_impersonation`;
 const GRAPH_SCOPE = 'https://graph.microsoft.com/User.ReadBasic.All';
+const OAUTH_BASE_SCOPES = 'openid profile offline_access';
+const MILLISECONDS_PER_SECOND = 1000;
+const MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
+const MILLISECONDS_PER_HOUR = 60 * MILLISECONDS_PER_MINUTE;
+const MINUTES_PER_DAY = 24 * 60;
+const DEFAULT_TELEMETRY_ENDPOINT = 'https://dc.services.visualstudio.com/';
+const MAX_FEATURE_NAME_LENGTH = 120;
+const EMPTY_RESOURCE_GROUP_QUERY = [
+	"ResourceContainers | where type == 'microsoft.resources/subscriptions/resourcegroups'",
+	"| extend rgAndSub = strcat(resourceGroup, '--', subscriptionId)",
+	"| join kind=leftouter (Resources | extend rgAndSub = strcat(resourceGroup, '--', subscriptionId) | summarize count() by rgAndSub ) on rgAndSub",
+	"| where isnull(count_) | project-away rgAndSub1, count_",
+	"| join kind=leftouter (ResourceContainers | where type=='microsoft.resources/subscriptions' | project subscriptionName=name, subscriptionId) on subscriptionId",
+	"| project-away subscriptionId1"
+].join(' ');
 const GRAPH_TOKEN_CACHE_KEY = 'graphOAuthTokenCache';
 const AUTH_ALARM_NAME = 'refresh-arm-token';
-const TOKEN_SAFETY_WINDOW_MS = 5 * 60 * 1000;
+const TOKEN_SAFETY_WINDOW_MS = 5 * MILLISECONDS_PER_MINUTE;
 const TELEMETRY_ALARM_NAME = 'telemetry-daily-upload';
 const TELEMETRY_BUFFER_KEY = 'telemetryEventBuffer';
 const TELEMETRY_SETTINGS_KEY = 'telemetrySettings';
-const TELEMETRY_OPT_IN_KEY = 'telemetryOptIn';
+const TELEMETRY_OPT_IN_KEY = AzureExtension.storageKeys.telemetryOptIn;
 const FEATURE_LAST_USED_AT_KEY = 'featureLastUsedAt';
 const FEATURE_LAST_USED_KEY = 'featureLastUsed';
 const MAX_TELEMETRY_BUFFER_SIZE = 300;
@@ -20,28 +47,24 @@ const TELEMETRY_FIXED_CONNECTION_STRING = TELEMETRY_CONNECTION_STRING_PLACEHOLDE
 console.log('[Azure Portal Extension] start background.js');
 
 chrome.runtime.onInstalled.addListener(async (details) => {
-    initializeTokenRefreshAlarm();
-    await initializeTelemetrySettings(details);
-    await initializeTelemetryAlarm();
+    try {
+        await initializeTokenRefreshAlarm();
+        await initializeTelemetrySettings(details);
+        await initializeTelemetryAlarm();
+    } catch (error) {
+        console.warn('[Azure Portal Extension] Installation initialization failed:', error);
+    }
 });
 
 chrome.runtime.onStartup.addListener(async () => {
-    initializeTokenRefreshAlarm();
-    await initializeTelemetryAlarm();
-    await registerStartupGapTelemetry();
+    try {
+        await initializeTokenRefreshAlarm();
+        await initializeTelemetryAlarm();
+        await registerStartupGapTelemetry();
+    } catch (error) {
+        console.warn('[Azure Portal Extension] Startup initialization failed:', error);
+    }
 });
-
-function storageGet(area, keys) {
-    return new Promise((resolve) => chrome.storage[area].get(keys, resolve));
-}
-
-function storageSet(area, values) {
-    return new Promise((resolve) => chrome.storage[area].set(values, resolve));
-}
-
-function storageRemove(area, keys) {
-    return new Promise((resolve) => chrome.storage[area].remove(keys, resolve));
-}
 
 async function getTelemetrySettings() {
     const defaults = {
@@ -105,12 +128,12 @@ async function initializeTelemetrySettings(details) {
 async function initializeTelemetryAlarm() {
     const alarm = await chrome.alarms.get(TELEMETRY_ALARM_NAME);
     if (!alarm) {
-        chrome.alarms.create(TELEMETRY_ALARM_NAME, { periodInMinutes: 1440 });
+        chrome.alarms.create(TELEMETRY_ALARM_NAME, { periodInMinutes: MINUTES_PER_DAY });
     }
 }
 
 function parseConnectionString(connectionString) {
-    const map = {};
+    const map: Record<string, string> = {};
     connectionString.split(';').forEach((part) => {
         const pair = part.split('=');
         if (pair.length >= 2) {
@@ -121,12 +144,12 @@ function parseConnectionString(connectionString) {
     });
     return {
         instrumentationKey: map.instrumentationkey || '',
-        ingestionEndpoint: map.ingestionendpoint || 'https://dc.services.visualstudio.com/'
+        ingestionEndpoint: map.ingestionendpoint || DEFAULT_TELEMETRY_ENDPOINT
     };
 }
 
 function getTelemetryEndpoint(ingestionEndpoint) {
-    const endpoint = (ingestionEndpoint || 'https://dc.services.visualstudio.com/').replace(/\/+$/, '');
+    const endpoint = (ingestionEndpoint || DEFAULT_TELEMETRY_ENDPOINT).replace(/\/+$/, '');
     if (endpoint.toLowerCase().endsWith('/v2/track')) {
         return endpoint;
     }
@@ -137,8 +160,8 @@ function getExtensionVersion() {
     return chrome.runtime.getManifest().version || '0.0.0';
 }
 
-function startupGapBucket(msGap) {
-    const hours = Math.floor(msGap / (60 * 60 * 1000));
+function getStartupGapBucket(msGap) {
+    const hours = Math.floor(msGap / MILLISECONDS_PER_HOUR);
     if (hours < 1) return 'lt1h';
     if (hours < 6) return 'lt6h';
     if (hours < 24) return 'lt24h';
@@ -153,7 +176,7 @@ async function appendTelemetryEvent(featureName, count) {
         return;
     }
 
-    const safeFeatureName = (featureName || '').trim().slice(0, 120);
+    const safeFeatureName = (featureName || '').trim().slice(0, MAX_FEATURE_NAME_LENGTH);
     if (!safeFeatureName) {
         return;
     }
@@ -221,7 +244,7 @@ async function registerStartupGapTelemetry() {
     if (latestFeature && latestUsedAt > 0) {
         const gapMs = now - latestUsedAt;
         if (gapMs > 0) {
-            const featureName = 'startup-gap-' + latestFeature + '-' + startupGapBucket(gapMs);
+            const featureName = 'startup-gap-' + latestFeature + '-' + getStartupGapBucket(gapMs);
             await appendTelemetryEvent(featureName, 1);
         }
     }
@@ -290,12 +313,12 @@ async function sendBufferedTelemetry() {
 
 async function getOAuthConfig() {
     const config = await storageGet('local', {
-        oauthTenantId: 'organizations',
+        oauthTenantId: AzureExtension.defaultTenant,
         oauthClientId: ''
     });
 
     return {
-        tenantId: (config.oauthTenantId || 'organizations').trim(),
+        tenantId: (config.oauthTenantId || AzureExtension.defaultTenant).trim(),
         clientId: (config.oauthClientId || '').trim()
     };
 }
@@ -332,26 +355,30 @@ async function createCodeChallenge(verifier) {
 }
 
 function buildAuthorizeUrl(config, codeChallenge) {
-    const authorizeUrl = new URL(`https://login.microsoftonline.com/${encodeURIComponent(config.tenantId)}/oauth2/v2.0/authorize`);
+    const authorizeUrl = new URL(getOAuthEndpoint(config.tenantId, 'authorize'));
     authorizeUrl.searchParams.set('client_id', config.clientId);
     authorizeUrl.searchParams.set('response_type', 'code');
     authorizeUrl.searchParams.set('redirect_uri', getRedirectUri());
     authorizeUrl.searchParams.set('response_mode', 'query');
-    authorizeUrl.searchParams.set('scope', `openid profile offline_access ${ARM_SCOPE}`);
+    authorizeUrl.searchParams.set('scope', `${OAUTH_BASE_SCOPES} ${ARM_SCOPE}`);
     authorizeUrl.searchParams.set('code_challenge', codeChallenge);
     authorizeUrl.searchParams.set('code_challenge_method', 'S256');
     authorizeUrl.searchParams.set('prompt', 'select_account');
     return authorizeUrl.toString();
 }
 
+function getOAuthEndpoint(tenantId: string, action: 'authorize' | 'token'): string {
+    return `${AZURE_ENDPOINTS.authority}/${encodeURIComponent(tenantId)}/oauth2/v2.0/${action}`;
+}
+
 async function exchangeAuthorizationCode(config, code, codeVerifier) {
-    const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(config.tenantId)}/oauth2/v2.0/token`;
+    const tokenUrl = getOAuthEndpoint(config.tenantId, 'token');
     const body = new URLSearchParams({
         client_id: config.clientId,
         grant_type: 'authorization_code',
         code,
         redirect_uri: getRedirectUri(),
-        scope: `openid profile offline_access ${ARM_SCOPE}`,
+        scope: `${OAUTH_BASE_SCOPES} ${ARM_SCOPE}`,
         code_verifier: codeVerifier
     });
 
@@ -371,12 +398,12 @@ async function exchangeAuthorizationCode(config, code, codeVerifier) {
 }
 
 async function refreshAccessToken(config, refreshToken, scope = ARM_SCOPE) {
-    const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(config.tenantId)}/oauth2/v2.0/token`;
+    const tokenUrl = getOAuthEndpoint(config.tenantId, 'token');
     const body = new URLSearchParams({
         client_id: config.clientId,
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
-        scope: `openid profile offline_access ${scope}`,
+        scope: `${OAUTH_BASE_SCOPES} ${scope}`,
         redirect_uri: getRedirectUri()
     });
 
@@ -396,7 +423,7 @@ async function refreshAccessToken(config, refreshToken, scope = ARM_SCOPE) {
 }
 
 async function saveTokenPayload(payload) {
-    const expiresAt = Date.now() + (Number(payload.expires_in) * 1000);
+    const expiresAt = Date.now() + (Number(payload.expires_in) * MILLISECONDS_PER_SECOND);
     const tokenCache = {
         accessToken: payload.access_token,
         refreshToken: payload.refresh_token,
@@ -410,7 +437,7 @@ async function saveTokenPayload(payload) {
 }
 
 function scheduleTokenRefresh(expiresAt) {
-    const refreshAt = Math.max(Date.now() + 60 * 1000, expiresAt - TOKEN_SAFETY_WINDOW_MS);
+    const refreshAt = Math.max(Date.now() + MILLISECONDS_PER_MINUTE, expiresAt - TOKEN_SAFETY_WINDOW_MS);
     chrome.alarms.create(AUTH_ALARM_NAME, { when: refreshAt });
 }
 
@@ -504,7 +531,7 @@ async function acquireGraphAccessToken() {
     }
 
     const payload = await refreshAccessToken(config, armCache.refreshToken, GRAPH_SCOPE);
-    const expiresAt = Date.now() + (Number(payload.expires_in) * 1000);
+    const expiresAt = Date.now() + (Number(payload.expires_in) * MILLISECONDS_PER_SECOND);
     await storageSet('local', {
         [GRAPH_TOKEN_CACHE_KEY]: {
             accessToken: payload.access_token,
@@ -542,11 +569,11 @@ async function fetchPagedValues(url, token) {
 
 function getRoleDefinitionUrl(subscriptionId, roleDefinitionId) {
     const roleId = String(roleDefinitionId || '').split('/').pop();
-    return 'https://management.azure.com/subscriptions/' +
+    return AZURE_ENDPOINTS.arm + '/subscriptions/' +
         encodeURIComponent(subscriptionId) +
         '/providers/Microsoft.Authorization/roleDefinitions/' +
         encodeURIComponent(roleId) +
-        '?api-version=2022-04-01';
+        '?api-version=' + API_VERSIONS.authorization;
 }
 
 async function resolveUserNames(principalIds, graphToken) {
@@ -555,7 +582,7 @@ async function resolveUserNames(principalIds, graphToken) {
     await Promise.all(principalIds.map(async (principalId) => {
         try {
             const response = await fetch(
-                'https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(principalId) +
+                AZURE_ENDPOINTS.graph + '/users/' + encodeURIComponent(principalId) +
                 '?$select=displayName,userPrincipalName,mail',
                 {
                     method: 'GET',
@@ -578,7 +605,8 @@ async function resolveUserNames(principalIds, graphToken) {
 
 async function getDirectUserAssignments(subscriptionId, scopeUrl, token, roleNameCache) {
     const assignments = await fetchPagedValues(
-        scopeUrl + '/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01&%24filter=atScope()',
+        scopeUrl + '/providers/Microsoft.Authorization/roleAssignments?api-version=' +
+            API_VERSIONS.authorization + '&%24filter=atScope()',
         token
     );
     const expectedScope = decodeURIComponent(new URL(scopeUrl).pathname)
@@ -648,13 +676,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
-        if (message?.name === 'oauth-config-get') {
+        if (message?.name === messages.getOAuthConfig) {
             const config = await getOAuthConfig();
             sendResponse({ ok: true, config });
             return;
         }
 
-        if (message?.name === 'oauth-config-set') {
+        if (message?.name === messages.setOAuthConfig) {
             await storageSet('local', {
                 oauthTenantId: (message.tenantId || '').trim(),
                 oauthClientId: (message.clientId || '').trim()
@@ -663,19 +691,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return;
         }
 
-        if (message?.name === 'auth-login') {
+        if (message?.name === messages.signIn) {
             const accessToken = await loginInteractiveAndCacheToken();
             sendResponse({ ok: true, accessToken });
             return;
         }
 
-        if (message?.name === 'auth-logout') {
+        if (message?.name === messages.signOut) {
             await clearTokenCache();
             sendResponse({ ok: true });
             return;
         }
 
-        if (message?.name === 'auth-status') {
+        if (message?.name === messages.authStatus) {
             const { oauthTokenCache } = await storageGet('local', { oauthTokenCache: null });
             const config = await getOAuthConfig();
             const now = Date.now();
@@ -690,25 +718,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return;
         }
 
-        if (message?.name === 'telemetry-settings-get') {
+        if (message?.name === messages.getTelemetrySettings) {
             const telemetrySettings = await getTelemetrySettings();
             sendResponse({ ok: true, telemetrySettings });
             return;
         }
 
-        if (message?.name === 'telemetry-settings-set') {
+        if (message?.name === messages.setTelemetrySettings) {
             await setTelemetrySettings(message.telemetrySettings || {});
             sendResponse({ ok: true });
             return;
         }
 
-        if (message?.name === 'telemetry-feature-use') {
+        if (message?.name === messages.featureUse) {
             await appendTelemetryEvent(message.featureName, message.count || 1);
             sendResponse({ ok: true });
             return;
         }
 
-        if (message?.name === 'telemetry-send-now') {
+        if (message?.name === messages.sendTelemetry) {
             const result = await sendBufferedTelemetry();
             sendResponse(result);
             return;
@@ -722,61 +750,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
-// return subscriptionList to scripts.js
-chrome.runtime.onConnect.addListener( port => {
-    console.log('[Azure Portal Extension] background.js#addListener: ' + port.name);
-	port.onMessage.addListener( async arg => {
-        try {
-            if( arg.name == "get-subscriptions-accesstoken" ){
-                const token = await acquireAccessToken({ interactiveFallback: false });
-                subscriptionIds.length = 0;
-                subscriptions = [];
-                var res = await fetch( "https://management.azure.com/subscriptions?api-version=2022-12-01", {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ` + token,
-                        'Content-Type': 'application/json'
-                    },
-                });
-                	var idArray = await res.json();
+async function fetchSubscriptionList(token: string) {
+    const response = await fetch(`${AZURE_ENDPOINTS.arm}/subscriptions?api-version=${API_VERSIONS.subscriptions}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+    const payload = await response.json();
+    if (!response.ok || payload.error) {
+        throw new Error(payload.error?.message || `Subscription lookup failed (HTTP ${response.status}).`);
+    }
+    if (!Array.isArray(payload.value)) {
+        throw new Error('Subscription lookup returned an invalid subscription list.');
+    }
+    return payload.value;
+}
 
-                	if( idArray.error){
-                    	console.log( idArray.error ); //TODO: Need to update to notify users this error
-                    	port.postMessage( {
-                        	name: "get-access-function",
-                        	error: idArray.error
-                    	});
-                    	return false;
-                	}else{
-                    subscriptions = Array.isArray(idArray.value) ? idArray.value : [];
-                    	//console.log(subscriptionIds);
-                    	for( var i=0; i<idArray.value.length ; i++){
-                            // example of each subscriptionID item
-                            // {
-                            //     "id": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-9c21fc881226",
-                            //     "authorizationSource": "RoleBased",
-                            //     "managedByTenants": [],
-                            //     "subscriptionId": "xxxxxxxx-xxxx-xxxx-xxxx-9c21fc881226",
-                            //     "tenantId": "b7501d50-50bf-4080-bfaa-912394380b1a",
-                            //     "displayName": "Microsoft Azure Enterprise",
-                            //     "state": "Enabled",
-                            //     "subscriptionPolicies": {
-                            //         "locationPlacementId": "Public_2014-09-01",
-                            //         "quotaId": "EnterpriseAgreement_2014-09-01",
-                            //         "spendingLimit": "Off"
-                            //     }
-                            // }
-                            	subscriptionIds.push(idArray.value[i].subscriptionId);
-                    	}
-                    	port.postMessage( {
-                        	name: "get-access-function",
-                        	subscriptions: idArray.value
-                    	});
-                	}
-                	return true;
+async function fetchEmptyResourceGroups(subscriptions, token: string) {
+    const response = await fetch(
+        `${AZURE_ENDPOINTS.arm}/providers/Microsoft.ResourceGraph/resources?api-version=${API_VERSIONS.resourceGraph}`,
+        {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subscriptions: subscriptions.map((subscription) => subscription.subscriptionId),
+                query: EMPTY_RESOURCE_GROUP_QUERY
+            })
+        }
+    );
+    const payload = await response.json();
+    if (!response.ok || payload.error) {
+        throw new Error(payload.error?.message || `Empty resource group lookup failed (HTTP ${response.status}).`);
+    }
+    return payload;
+}
+
+chrome.runtime.onConnect.addListener(port => {
+    let subscriptions = [];
+    console.log('[Azure Portal Extension] background.js#addListener: ' + port.name);
+	port.onMessage.addListener(async message => {
+        try {
+            if (message.name === messages.getSubscriptions) {
+                const token = await acquireAccessToken({ interactiveFallback: false });
+                subscriptions = [];
+                subscriptions = await fetchSubscriptionList(token);
+                port.postMessage({
+                    name: messages.subscriptionsResult,
+                    subscriptions
+                });
+                return;
             }
 
-            if (arg.name === 'get-direct-user-rbac-tree') {
+            if (message.name === messages.getDirectUserRbac) {
                 const token = await acquireAccessToken({ interactiveFallback: false });
                 let graphToken = null;
                 try {
@@ -792,13 +816,13 @@ chrome.runtime.onConnect.addListener( port => {
                     const subscriptionScope = '/subscriptions/' + encodeURIComponent(subscriptionId);
                     const subscriptionAssignments = await getDirectUserAssignments(
                         subscriptionId,
-                        'https://management.azure.com' + subscriptionScope,
+                        AZURE_ENDPOINTS.arm + subscriptionScope,
                         token,
                         roleNameCache
                     );
                     const resourceGroups = await fetchPagedValues(
-                        'https://management.azure.com' + subscriptionScope +
-                        '/resourceGroups?api-version=2021-04-01',
+                        AZURE_ENDPOINTS.arm + subscriptionScope +
+                        '/resourceGroups?api-version=' + API_VERSIONS.resourceGroups,
                         token
                     );
                     const resourceGroupNodes = [];
@@ -808,7 +832,7 @@ chrome.runtime.onConnect.addListener( port => {
                             '/resourceGroups/' + encodeURIComponent(resourceGroupName);
                         const assignments = await getDirectUserAssignments(
                             subscriptionId,
-                            'https://management.azure.com' + resourceGroupScope,
+                            AZURE_ENDPOINTS.arm + resourceGroupScope,
                             token,
                             roleNameCache
                         );
@@ -853,7 +877,7 @@ chrome.runtime.onConnect.addListener( port => {
                     });
                 });
                 port.postMessage({
-                    name: 'get-direct-user-rbac-tree',
+                    name: messages.getDirectUserRbac,
                     rbacTree: {
                         tenantId: subscriptions[0]?.tenantId || '',
                         data: tree,
@@ -866,37 +890,21 @@ chrome.runtime.onConnect.addListener( port => {
                 return true;
             }
 
-            if( arg.name=="get-empty-resourcegroups"){
+            if (message.name === messages.getEmptyResourceGroups) {
                 const token = await acquireAccessToken({ interactiveFallback: false });
-                // console.log("################################# get-empty-resourcegroups");
-                // REST API call to get empty resource grups with subscription name
-                var data = {
-                    "subscriptions" :subscriptionIds,
-                    "query" : "ResourceContainers | where type == 'microsoft.resources/subscriptions/resourcegroups' | extend rgAndSub = strcat(resourceGroup, '--', subscriptionId) | join kind=leftouter (Resources | extend rgAndSub = strcat(resourceGroup, '--', subscriptionId) | summarize count() by rgAndSub ) on rgAndSub | where isnull(count_) | project-away rgAndSub1, count_ | join kind=leftouter (ResourceContainers | where type=='microsoft.resources/subscriptions' | project subscriptionName=name, subscriptionId) on subscriptionId | project-away subscriptionId1"
-                };
-
-                var res = await fetch('https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ` + token,
-                        'Content-Type': 'application/json'
-                    },
-                    dataType: 'json',
-                    body : JSON.stringify(data) // required to pass parameters as json body
+                const emptyResourceGroups = await fetchEmptyResourceGroups(subscriptions, token);
+                port.postMessage({
+                    name: messages.getEmptyResourceGroups,
+                    emptyResourceGroups
                 });
-                	var rgArray = await res.json();
-                	port.postMessage( {
-                    	name : "get-empty-resourcegroups",
-                    	emptyResourceGroups: rgArray
-                	});
-                return true;
+                return;
             }
-        }         catch (error) {
+        } catch (error) {
             try {
                 port.postMessage({
-                    name: arg?.name === 'get-direct-user-rbac-tree'
-                        ? 'get-direct-user-rbac-tree'
-                        : 'get-access-function',
+                    name: message?.name === messages.getDirectUserRbac
+                        ? messages.getDirectUserRbac
+                        : messages.subscriptionsResult,
                     error: error.message || String(error)
                 });
             }

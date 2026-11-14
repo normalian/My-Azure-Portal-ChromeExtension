@@ -20,6 +20,9 @@ jobs:
       - name: Build TypeScript sources
         run: npm run build
 
+      - name: Run regression tests
+        run: npm test
+
       - name: Create temporary secrets file
         run: |
           cat > secrets.local.json <<'JSON'

@@ -1,23 +1,27 @@
+(() => {
 'use strict';
-function sendRuntimeMessage(message) {
-    return new Promise((resolve) => {
-        chrome.runtime.sendMessage(message, resolve);
-    });
+const { messages, sendRuntimeMessage } = AzureExtension;
+const CLOSE_DELAY_MS = 250;
+function telemetryCheckbox() {
+    const checkbox = document.getElementById('telemetryOptIn');
+    if (!(checkbox instanceof HTMLInputElement)) {
+        throw new Error('Onboarding telemetry checkbox is missing.');
+    }
+    return checkbox;
 }
 async function loadTelemetrySettings() {
-    const response = await sendRuntimeMessage({ name: 'telemetry-settings-get' });
+    const response = await sendRuntimeMessage({ name: messages.getTelemetrySettings });
     if (!response?.ok) {
         document.getElementById('status').textContent = response?.error || 'Failed to load settings.';
         return;
     }
-    const settings = response.telemetrySettings || {};
-    const enabled = Boolean(settings.enabled);
-    document.getElementById('telemetryOptIn').checked = enabled;
+    const enabled = Boolean(response.telemetrySettings?.enabled);
+    telemetryCheckbox().checked = enabled;
 }
 async function saveTelemetrySettings() {
-    const enabled = document.getElementById('telemetryOptIn').checked;
+    const enabled = telemetryCheckbox().checked;
     const response = await sendRuntimeMessage({
-        name: 'telemetry-settings-set',
+        name: messages.setTelemetrySettings,
         telemetrySettings: {
             enabled
         }
@@ -27,7 +31,7 @@ async function saveTelemetrySettings() {
         return;
     }
     document.getElementById('status').textContent = enabled ? 'Telemetry enabled.' : 'Telemetry remains disabled.';
-    setTimeout(() => window.close(), 250);
+    setTimeout(() => window.close(), CLOSE_DELAY_MS);
 }
 class OnboardingController {
     initialize() {
@@ -37,11 +41,17 @@ class OnboardingController {
         if (!optInElem || !saveElem || !closeElem) {
             throw new Error('Onboarding controls are missing.');
         }
-        saveElem.addEventListener('click', saveTelemetrySettings);
+        saveElem.addEventListener('click', () => saveTelemetrySettings().catch(showOnboardingError));
         closeElem.addEventListener('click', () => window.close());
-        loadTelemetrySettings();
+        loadTelemetrySettings().catch(showOnboardingError);
     }
+}
+function showOnboardingError(error) {
+    document.getElementById('status').textContent =
+        error instanceof Error ? error.message : String(error);
 }
 document.addEventListener('DOMContentLoaded', () => {
     new OnboardingController().initialize();
 });
+
+})();
